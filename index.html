@@ -71,7 +71,7 @@
           </div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
             <button onClick="{{ undo }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">↶ Rückgängig</button>
-            <button onClick="{{ resetClay }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">Neuer Ton</button>
+            <button onClick="{{ resetClay }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">Neuer Tonklumpen</button>
           </div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
             <button onClick="{{ toggleSpin }}" style="min-height:64px; font-size:22px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ spinLabel }}</button>
@@ -380,7 +380,7 @@ class Component extends DCLogic {
       canvasDisplay: ['wheel', 'glaze', 'firing', 'done'].includes(screen) ? 'flex' : 'none',
       showGalleryBtn: screen !== 'gallery' && screen !== 'start', galleryCount: s.gallery.length, hasGallery: s.gallery.length > 0,
       galleryEmpty: s.gallery.length === 0, mountRef: this.mountRef, hint: s.hint,
-      spinLabel: s.spinning ? '⏸ Scheibe anhalten' : '▶ Scheibe drehen', soundLabel: s.sound ? '🔊 Ton an' : '🔇 Ton aus',
+      spinLabel: s.spinning ? '⏸ Scheibe anhalten' : '▶ Scheibe drehen', soundLabel: s.sound ? '🔊 Klang an' : '🔇 Klang aus',
       firePct: s.firePct + '%', fireTemp: fireTemp + ' °C',
       fireText: s.firePct < 60 ? 'Der Ofen heizt langsam auf. Die Glasur schmilzt und wird glänzend.' : 'Der Ofen kühlt ab. Gleich können Sie Ihr Stück herausnehmen.',
       glazeName: s.glaze ? s.glaze.name : '',
