@@ -73,6 +73,7 @@
             <button onClick="{{ undo }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">↶ Rückgängig</button>
             <button onClick="{{ resetClay }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">Neuer Tonklumpen</button>
           </div>
+          <button onClick="{{ randomShape }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">🎲 Zufällige Form</button>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
             <button onClick="{{ toggleSpin }}" style="min-height:64px; font-size:22px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ spinLabel }}</button>
             <button onClick="{{ toggleSound }}" style="min-height:64px; font-size:22px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ soundLabel }}</button>
@@ -334,6 +335,18 @@ class Component extends DCLogic {
       if (this.state.screen === 'wheel' && !e.ctrlKey && !e.shiftKey) this.changeHeight(e.deltaY < 0 ? 0.04 : -0.04); else this.orbit(0, 0, e.deltaY * 0.01);
     }, { passive: false });
   }
+  // random but pleasant pot: tapered base + belly + optional rim flare
+  randomShape() {
+    this.snapshot();
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const base = rnd(0.55, 1.1), taper = rnd(-0.2, 0.45), belly = rnd(-0.15, 0.5), bellyAt = rnd(0.25, 0.65), flare = rnd(0, 0.35);
+    this.profile = Array.from({ length: RINGS }, (_, i) => {
+      const t = i / (RINGS - 1), b = Math.exp(-((t - bellyAt) ** 2) / 0.06), f = Math.max(0, (t - 0.8) / 0.2) ** 2;
+      return Math.min(MAXR, Math.max(MINR + 0.1, base * (1 - taper * t) + belly * b + flare * f));
+    });
+    this.height = rnd(0.5, 1.5);
+    this.refresh(); this.forceUpdate();
+  }
   changeHeight(d) { this.snapshot(); this.height = Math.min(1.6, Math.max(0.35, this.height + d)); this.refresh(); this.forceUpdate(); }
 
   // --- sound: soft wheel hum
@@ -398,6 +411,7 @@ class Component extends DCLogic {
       goGlaze: () => this.setState({ screen: 'glaze' }),
       backToWheel: () => { this.resetMaterial(); this.setState({ screen: 'wheel', glaze: null }); },
       startFire: () => this.startFire(),
+      randomShape: () => this.randomShape(),
       taller: () => this.changeHeight(0.08), shorter: () => this.changeHeight(-0.08),
       undo: () => { const h = this.history.pop(); if (!h) return; this.profile = h.p; this.height = h.h; this.refresh(); },
       resetClay: () => { this.snapshot(); this.profile = defaultProfile(); this.height = 1; this.refresh(); },
