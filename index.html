@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Töpferwerkstatt</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600&family=Nunito+Sans:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin:0; padding:0; height:100%; background:#F4ECDF; color:#35261B; font-family:'Nunito Sans', 'Helvetica Neue', Arial, sans-serif; overscroll-behavior:none; -webkit-user-select:none; user-select:none; }
+    a { color:#B45E3A; } a:hover { color:#9B4D2E; }
+    button { font-family:inherit; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+    @keyframes kiln { 0%,100% { opacity:.55; } 50% { opacity:.9; } }
+  </style>
+  <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
+  <script type="module">import * as THREE from 'three'; window.THREE = THREE; window.dispatchEvent(new Event('three-ready'));</script>
+</helmet>
+<div data-screen-label="App" style="min-height:100vh; display:flex; flex-direction:column; background:#F4ECDF; color:#35261B;">
+
+  <header style="display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 28px; border-bottom:2px solid #D9C9B2; background:#FBF6EC;">
+    <div style="display:flex; align-items:baseline; gap:18px; flex-wrap:wrap;">
+      <div style="font-family:Lora, Georgia, serif; font-size:30px; font-weight:600; letter-spacing:-0.01em;">Töpferwerkstatt</div>
+      <div style="font-size:22px; color:#6E5A4A; font-weight:500;">{{ stepLabel }}</div>
+    </div>
+    <sc-if value="{{ showGalleryBtn }}" hint-placeholder-val="{{ true }}">
+      <button onClick="{{ goGallery }}" style="min-height:60px; padding:0 24px; font-size:22px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #35261B; border-radius:14px; cursor:pointer;" style-hover="background:#F0E4D0;">Galerie ({{ galleryCount }})</button>
+    </sc-if>
+  </header>
+
+  <sc-if value="{{ isStart }}" hint-placeholder-val="{{ true }}">
+    <main data-screen-label="Start" style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:48px 28px; gap:28px;">
+      <div style="width:140px; height:140px; border-radius:50%; background:radial-gradient(circle at 40% 35%, #C98A63, #8A5A3A 70%, #5E3A24); box-shadow:0 12px 30px rgba(53,38,27,.25);"></div>
+      <h1 style="font-family:Lora, Georgia, serif; font-size:48px; font-weight:600; margin:0; line-height:1.15; text-wrap:pretty; max-width:720px;">Schön, dass Sie da sind.</h1>
+      <p style="font-size:26px; line-height:1.5; margin:0; max-width:640px; color:#4D3B2D; text-wrap:pretty;">Die Scheibe dreht sich langsam. Legen Sie zwei Finger links und rechts an den Ton und ziehen Sie sie auseinander oder zusammen – ganz ohne Eile. Am PC ziehen Sie einfach mit der Maus am Rand des Tons.</p>
+      <button onClick="{{ startNew }}" style="min-height:84px; padding:0 48px; font-size:30px; font-weight:700; color:#FBF6EC; background:#B45E3A; border:none; border-radius:18px; cursor:pointer; box-shadow:0 6px 0 #8A4428;" style-hover="background:#9B4D2E;" style-active="transform:translateY(4px); box-shadow:0 2px 0 #8A4428;">Ton auf die Scheibe legen</button>
+      <sc-if value="{{ hasGallery }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ goGallery }}" style="min-height:64px; padding:0 32px; font-size:24px; font-weight:700; color:#35261B; background:transparent; border:2px solid #35261B; border-radius:16px; cursor:pointer;" style-hover="background:#F0E4D0;">Meine Werke ansehen</button>
+      </sc-if>
+    </main>
+  </sc-if>
+
+  <div style="flex:1; display:{{ canvasDisplay }}; flex-wrap:wrap; align-content:stretch;">
+    <div style="flex:1 1 560px; min-width:0; min-height:72vh; position:relative; background:linear-gradient(180deg, #EFE3CF 0%, #E2D2B9 100%);">
+      <div ref="{{ mountRef }}" style="position:absolute; inset:0; overflow:hidden; touch-action:none; cursor:grab;"></div>
+      <sc-if value="{{ isFiring }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse at 50% 70%, rgba(255,140,40,.75), rgba(180,60,10,.35) 55%, rgba(40,10,0,.6)); animation:kiln 2.4s ease-in-out infinite;"></div>
+      </sc-if>
+      <button onClick="{{ resetView }}" style="position:absolute; top:16px; right:16px; min-height:56px; padding:0 18px; font-size:20px; font-weight:700; color:#35261B; background:rgba(251,246,236,.92); border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">⟲ Ansicht zurücksetzen</button>
+      <sc-if value="{{ isWheel }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute; left:20px; right:20px; bottom:20px; display:flex; justify-content:center; pointer-events:none;">
+          <div style="background:rgba(251,246,236,.92); border:2px solid #D9C9B2; border-radius:14px; padding:12px 20px; font-size:22px; color:#4D3B2D; text-align:center; max-width:600px; text-wrap:pretty;">{{ hint }}</div>
+        </div>
+      </sc-if>
+    </div>
+
+    <aside style="flex:0 1 320px; min-width:280px; display:flex; flex-direction:column; gap:14px; padding:20px; background:#FBF6EC; border-left:2px solid #D9C9B2;">
+
+      <sc-if value="{{ isWheel }}" hint-placeholder-val="{{ true }}">
+        <div data-screen-label="Scheibe" style="display:flex; flex-direction:column; gap:14px;">
+          <h2 style="font-family:Lora, Georgia, serif; font-size:30px; font-weight:600; margin:0 0 6px;">Formen</h2>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <button onClick="{{ taller }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">▲ Höher ziehen</button>
+            <button onClick="{{ shorter }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">▼ Niedriger</button>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <button onClick="{{ undo }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">↶ Rückgängig</button>
+            <button onClick="{{ resetClay }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">Neuer Ton</button>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <button onClick="{{ toggleSpin }}" style="min-height:64px; font-size:22px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ spinLabel }}</button>
+            <button onClick="{{ toggleSound }}" style="min-height:64px; font-size:22px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ soundLabel }}</button>
+          </div>
+          <div style="flex:1;"></div>
+          <button onClick="{{ goGlaze }}" style="min-height:84px; font-size:28px; font-weight:700; color:#FBF6EC; background:#B45E3A; border:none; border-radius:18px; cursor:pointer; box-shadow:0 6px 0 #8A4428; margin-top:10px;" style-hover="background:#9B4D2E;" style-active="transform:translateY(4px); box-shadow:0 2px 0 #8A4428;">Fertig – Glasieren →</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isGlaze }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="Glasieren" style="display:flex; flex-direction:column; gap:14px;">
+          <h2 style="font-family:Lora, Georgia, serif; font-size:30px; font-weight:600; margin:0;">Glasur wählen</h2>
+          <p style="font-size:22px; color:#6E5A4A; margin:0 0 6px; line-height:1.4;">Tippen Sie auf eine Farbe. Sie können jederzeit wechseln.</p>
+          <div style="display:grid; grid-template-columns:minmax(0,1fr); gap:10px;">
+            <sc-for list="{{ glazes }}" as="g" hint-placeholder-count="6">
+              <button onClick="{{ g.pick }}" style="min-height:68px; min-width:0; display:flex; align-items:center; gap:16px; padding:0 16px; font-size:22px; font-weight:700; color:#35261B; background:#F4ECDF; border:3px solid {{ g.border }}; border-radius:14px; cursor:pointer; text-align:left;" style-hover="background:#EBDFCB;">
+                <span style="width:40px; height:40px; flex:none; border-radius:50%; background:{{ g.color }}; box-shadow:inset 0 -6px 10px rgba(0,0,0,.2), 0 1px 2px rgba(0,0,0,.25);"></span>
+                <span style="white-space:nowrap;">{{ g.name }}</span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="flex:1;"></div>
+          <button onClick="{{ backToWheel }}" style="min-height:64px; font-size:22px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">← Zurück zur Scheibe</button>
+          <button onClick="{{ startFire }}" style="min-height:84px; font-size:28px; font-weight:700; color:#FBF6EC; background:#B45E3A; border:none; border-radius:18px; cursor:pointer; box-shadow:0 6px 0 #8A4428;" style-hover="background:#9B4D2E;" style-active="transform:translateY(4px); box-shadow:0 2px 0 #8A4428;">In den Ofen →</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isFiring }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="Brennen" style="display:flex; flex-direction:column; gap:16px;">
+          <h2 style="font-family:Lora, Georgia, serif; font-size:30px; font-weight:600; margin:0;">Im Brennofen</h2>
+          <p style="font-size:24px; color:#4D3B2D; margin:0; line-height:1.4; text-wrap:pretty;">{{ fireText }}</p>
+          <div style="height:22px; background:#E6D9C3; border-radius:11px; overflow:hidden; border:2px solid #D9C9B2;">
+            <div style="height:100%; width:{{ firePct }}; background:linear-gradient(90deg, #C8893A, #B45E3A); transition:width .4s linear;"></div>
+          </div>
+          <div style="font-size:26px; font-weight:700;">{{ fireTemp }}</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="Fertig" style="display:flex; flex-direction:column; gap:14px;">
+          <h2 style="font-family:Lora, Georgia, serif; font-size:30px; font-weight:600; margin:0;">Fertig gebrannt</h2>
+          <p style="font-size:24px; color:#4D3B2D; margin:0; line-height:1.4; text-wrap:pretty;">Ihr Stück in <strong>{{ glazeName }}</strong> ist abgekühlt. Schauen Sie es sich in Ruhe an.</p>
+          <div style="flex:1;"></div>
+          <button onClick="{{ saveToGallery }}" style="min-height:84px; font-size:28px; font-weight:700; color:#FBF6EC; background:#B45E3A; border:none; border-radius:18px; cursor:pointer; box-shadow:0 6px 0 #8A4428;" style-hover="background:#9B4D2E;" style-active="transform:translateY(4px); box-shadow:0 2px 0 #8A4428;">In die Galerie stellen</button>
+          <button onClick="{{ startNew }}" style="min-height:64px; font-size:22px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">Neues Stück beginnen</button>
+        </div>
+      </sc-if>
+    </aside>
+  </div>
+
+  <sc-if value="{{ isGallery }}" hint-placeholder-val="{{ false }}">
+    <main data-screen-label="Galerie" style="flex:1; padding:32px 28px; display:flex; flex-direction:column; gap:24px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+        <h1 style="font-family:Lora, Georgia, serif; font-size:40px; font-weight:600; margin:0;">Meine Werke</h1>
+        <button onClick="{{ startNew }}" style="min-height:72px; padding:0 32px; font-size:26px; font-weight:700; color:#FBF6EC; background:#B45E3A; border:none; border-radius:18px; cursor:pointer; box-shadow:0 6px 0 #8A4428;" style-hover="background:#9B4D2E;">Neues Stück beginnen</button>
+      </div>
+      <sc-if value="{{ galleryEmpty }}" hint-placeholder-val="{{ false }}">
+        <p style="font-size:26px; color:#6E5A4A; margin:0;">Noch ist das Regal leer – das erste Stück wartet auf Sie.</p>
+      </sc-if>
+      <sc-if value="{{ hasGallery }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:24px;">
+        <sc-for list="{{ gallery }}" as="w" hint-placeholder-count="0">
+          <div style="background:#FBF6EC; border:2px solid #D9C9B2; border-radius:18px; overflow:hidden; display:flex; flex-direction:column;">
+            <div role="img" aria-label="Töpferstück" style="{{ w.thumbStyle }}"></div>
+            <div style="padding:16px 18px; display:flex; flex-direction:column; gap:4px;">
+              <div style="font-size:24px; font-weight:700;">{{ w.glaze }}</div>
+              <div style="font-size:20px; color:#6E5A4A;">{{ w.date }}</div>
+            </div>
+            <button onClick="{{ w.remove }}" style="min-height:56px; margin:0 18px 18px; font-size:20px; font-weight:700; color:#6E5A4A; background:transparent; border:2px solid #D9C9B2; border-radius:12px; cursor:pointer;" style-hover="background:#F0E4D0; color:#35261B;">Entfernen</button>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+    </main>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;wheelSpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0.3,&quot;max&quot;:2,&quot;step&quot;:0.1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Scheibe&quot;},&quot;clayStrength&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0.5,&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;step&quot;:0.1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Scheibe&quot;}}">
+const GLAZES = [
+  { name: 'Honig', color: '#C8893A', rough: 0.3 },
+  { name: 'Seladon', color: '#9FB8A3', rough: 0.35 },
+  { name: 'Himmelblau', color: '#6B8FB0', rough: 0.3 },
+  { name: 'Milchweiß', color: '#EFE7D8', rough: 0.4 },
+  { name: 'Ochsenblut', color: '#7A1F1F', rough: 0.25 },
+  { name: 'Tenmoku', color: '#2B1A14', rough: 0.2 },
+];
+const RINGS = 28, CLAY = '#A86B48', MINR = 0.15, MAXR = 1.6;
+const defaultProfile = () => Array.from({ length: RINGS }, (_, i) => 0.95 - 0.35 * (i / (RINGS - 1)));
+const KEY = 'toepfern.galerie';
+const loadGallery = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } };
+
+class Component extends DCLogic {
+  state = {
+    screen: 'start', spinning: true, sound: false, glaze: null, fired: false, firePct: 0,
+    gallery: loadGallery(), hint: 'Am Ton ziehen formt ihn. Neben dem Ton ziehen (oder rechte Maustaste) dreht die Ansicht; zwei Finger neben dem Ton zoomen.',
+  };
+  profile = defaultProfile(); height = 1.0; history = [];
+  mountRef = React.createRef();
+  pointers = new Map();
+
+  componentDidMount() {
+    const go = () => this.initThree();
+    if (window.THREE) go(); else window.addEventListener('three-ready', go, { once: true });
+    this.onResize = () => this.resize();
+    window.addEventListener('resize', this.onResize);
+  }
+  componentWillUnmount() {
+    window.removeEventListener('resize', this.onResize);
+    cancelAnimationFrame(this.raf); clearInterval(this.fireTimer); if (this.ro) this.ro.disconnect();
+    if (this.renderer) this.renderer.dispose();
+    this.stopSound();
+  }
+  componentDidUpdate() {
+    // support.js passes only prevProps here, so track the last screen ourselves.
+    if (this.lastScreen !== this.state.screen) { this.lastScreen = this.state.screen; requestAnimationFrame(() => this.resize()); setTimeout(() => this.resize(), 60); }
+  }
+
+  initThree() {
+    const THREE = window.THREE, el = this.mountRef.current; if (!el) return;
+    const r = this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    r.setPixelRatio(Math.min(devicePixelRatio, 2)); r.shadowMap.enabled = true; el.appendChild(r.domElement);
+    const s = this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(32, 1, 0.1, 50); this.cam = { theta: 0, phi: 1.25, dist: 5.4 }; this.updateCamera();
+    s.add(new THREE.HemisphereLight(0xfff4e0, 0x8a6a4a, 0.9));
+    const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(3, 6, 4); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); s.add(key);
+    const fill = new THREE.DirectionalLight(0xffe8d0, 0.5); fill.position.set(-4, 3, -2); s.add(fill);
+    // wheel head
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.3, 0.18, 64), new THREE.MeshStandardMaterial({ map: this.wheelTexture(), roughness: 0.7, metalness: 0.1 }));
+    wheel.position.y = -0.09; wheel.receiveShadow = true; s.add(wheel);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(2.25, 0.05, 12, 80), new THREE.MeshStandardMaterial({ color: 0x3d2a1e, roughness: 0.5 }));
+    rim.rotation.x = Math.PI / 2; rim.position.y = 0; s.add(rim);
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(6, 48), new THREE.ShadowMaterial({ opacity: 0.25 }));
+    floor.rotation.x = -Math.PI / 2; floor.position.y = -0.18; floor.receiveShadow = true; s.add(floor);
+    this.mat = new THREE.MeshStandardMaterial({ color: CLAY, map: this.clayTexture(), roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
+    this.pot = new THREE.Mesh(this.buildGeo(), this.mat); this.pot.castShadow = true; this.pot.receiveShadow = true; s.add(this.pot);
+    this.group = new THREE.Group(); this.group.add(wheel, rim, this.pot); s.add(this.group);
+    this.bindPointer(el);
+    r.domElement.style.display = 'block';
+    this.ro = new ResizeObserver(() => this.resize()); this.ro.observe(el);
+    this.resize();
+    const tick = () => { this.raf = requestAnimationFrame(tick); if (this.state.spinning && this.state.screen !== 'gallery') this.group.rotation.y += 0.012 * (this.props.wheelSpeed ?? 1); this.renderer.render(this.scene, this.camera); };
+    tick();
+  }
+  wheelTexture() {
+    const THREE = window.THREE, c = document.createElement('canvas'); c.width = c.height = 512; const x = c.getContext('2d');
+    x.fillStyle = '#6b4a33'; x.fillRect(0, 0, 512, 512);
+    // concentric rings + radial marks so the spin reads clearly
+    x.strokeStyle = 'rgba(0,0,0,.25)'; x.lineWidth = 2;
+    for (let r = 40; r < 256; r += 36) { x.beginPath(); x.arc(256, 256, r, 0, Math.PI * 2); x.stroke(); }
+    x.strokeStyle = 'rgba(255,230,200,.45)'; x.lineWidth = 6;
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; x.beginPath(); x.moveTo(256 + Math.cos(a) * 60, 256 + Math.sin(a) * 60); x.lineTo(256 + Math.cos(a) * 244, 256 + Math.sin(a) * 244); x.stroke(); }
+    x.fillStyle = '#e8c9a0'; x.beginPath(); x.arc(256 + 200, 256, 16, 0, Math.PI * 2); x.fill();
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  }
+  clayTexture() {
+    const THREE = window.THREE, c = document.createElement('canvas'); c.width = 512; c.height = 256; const x = c.getContext('2d');
+    x.fillStyle = '#ffffff'; x.fillRect(0, 0, 512, 256);
+    for (let i = 0; i < 2600; i++) { x.fillStyle = `rgba(${Math.random() < 0.5 ? '60,30,15' : '255,235,210'},${0.08 + Math.random() * 0.22})`; const r = 1 + Math.random() * 3; x.beginPath(); x.arc(Math.random() * 512, Math.random() * 256, r, 0, Math.PI * 2); x.fill(); }
+    for (let i = 0; i < 18; i++) { x.fillStyle = 'rgba(70,35,15,.10)'; x.fillRect(Math.random() * 512, 0, 2 + Math.random() * 6, 256); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 1); t.colorSpace = THREE.SRGBColorSpace; return t;
+  }
+  updateCamera() {
+    const c = this.cam, t = { x: 0, y: 0.9 * this.height, z: 0 };
+    this.camera.position.set(t.x + c.dist * Math.sin(c.phi) * Math.sin(c.theta), t.y + c.dist * Math.cos(c.phi), t.z + c.dist * Math.sin(c.phi) * Math.cos(c.theta));
+    this.camera.lookAt(t.x, t.y, t.z);
+  }
+  orbit(dTheta, dPhi, dDist) {
+    const c = this.cam; c.theta += dTheta; c.phi = Math.min(1.55, Math.max(0.35, c.phi + dPhi)); c.dist = Math.min(9, Math.max(3, c.dist + (dDist || 0))); this.updateCamera();
+  }
+  resetCamera() { this.cam = { theta: 0, phi: 1.25, dist: 5.4 }; this.updateCamera(); }
+  hitsPot(e) {
+    const THREE = window.THREE, rect = this.renderer.domElement.getBoundingClientRect();
+    const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), this.camera);
+    // generous hit: pot mesh or anything within 0.5 units of the axis along the pot height
+    if (ray.intersectObject(this.pot).length) return true;
+    const p = this.toLocal(e); if (!p) return false;
+    const idx = Math.round((p.y / (2 * this.height)) * (RINGS - 1));
+    if (idx < 0 || idx >= RINGS) return false;
+    return Math.abs(p.x) < this.profile[idx] + 0.3;
+  }
+  buildGeo() {
+    const THREE = window.THREE, pts = [];
+    pts.push(new THREE.Vector2(0, 0));
+    for (let i = 0; i < RINGS; i++) pts.push(new THREE.Vector2(this.profile[i], (i / (RINGS - 1)) * 2 * this.height));
+    // hollow vessel: rim, then inner wall back down to a floor
+    const wall = 0.13, floorY = 0.14, h = 2 * this.height;
+    for (let i = RINGS - 1; i >= 0; i--) {
+      const y = (i / (RINGS - 1)) * h; if (y < floorY + 0.05) break;
+      pts.push(new THREE.Vector2(Math.max(this.profile[i] - wall, 0.03), y));
+    }
+    pts.push(new THREE.Vector2(0.03, floorY), new THREE.Vector2(0, floorY));
+    const g = new THREE.LatheGeometry(pts, 72); g.computeVertexNormals(); return g;
+  }
+  refresh() { if (!this.pot) return; this.pot.geometry.dispose(); this.pot.geometry = this.buildGeo(); this.updateCamera(); }
+  resize() {
+    const el = this.mountRef.current; if (!el || !this.renderer) return;
+    const w = el.clientWidth, h = el.clientHeight; if (w < 2 || h < 2) return;
+    this.renderer.setSize(w, h, true); this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
+  }
+  snapshot() { this.history.push({ p: this.profile.slice(), h: this.height }); if (this.history.length > 60) this.history.shift(); }
+
+  // --- shaping: map screen position to ring index + radius in world units
+  toLocal(e) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const THREE = window.THREE;
+    const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1, ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(nx, ny), this.camera);
+    // intersect with the camera-facing vertical plane through the axis
+    const n = new THREE.Vector3(Math.sin(this.cam.theta), 0, Math.cos(this.cam.theta));
+    const plane = new THREE.Plane(n, 0), hit = new THREE.Vector3();
+    if (!ray.ray.intersectPlane(plane, hit)) return null;
+    // x = signed distance from the axis in screen-right direction, y = height
+    const right = new THREE.Vector3(Math.cos(this.cam.theta), 0, -Math.sin(this.cam.theta));
+    return { x: hit.dot(right), y: hit.y };
+  }
+  applyAt(y, radius) {
+    const idx = Math.round((y / (2 * this.height)) * (RINGS - 1)); if (idx < 1 || idx >= RINGS) return;
+    const rr = Math.min(MAXR, Math.max(0.2, radius));
+    for (let k = -3; k <= 3; k++) { const j = idx + k; if (j < 1 || j >= RINGS) continue; const w = Math.exp(-(k * k) / 4); this.profile[j] += (rr - this.profile[j]) * w * (this.props.clayStrength ?? 0.5); }
+    this.refresh();
+  }
+  bindPointer(el) {
+    el.addEventListener('pointerdown', e => {
+      if (this.state.screen === 'gallery' || this.state.screen === 'start') return;
+      el.setPointerCapture(e.pointerId);
+      if (!this.pointers.size) this.mode = (this.state.screen === 'wheel' && e.button === 0 && this.hitsPot(e)) ? 'shape' : 'orbit';
+      this.pointers.set(e.pointerId, e);
+      if (this.mode === 'shape') { this.snapshot(); this.startSound(true); }
+    });
+    el.addEventListener('pointermove', e => {
+      if (!this.pointers.has(e.pointerId)) return;
+      const prev = this.pointers.get(e.pointerId); this.pointers.set(e.pointerId, e);
+      const ps = [...this.pointers.values()];
+      if (this.mode === 'orbit') {
+        if (ps.length >= 2) {
+          const d = Math.hypot(ps[0].clientX - ps[1].clientX, ps[0].clientY - ps[1].clientY);
+          if (this.pinchDist) this.orbit(0, 0, (this.pinchDist - d) * 0.01); this.pinchDist = d;
+        } else { this.orbit(-(e.clientX - prev.clientX) * 0.006, (e.clientY - prev.clientY) * 0.005); }
+        return;
+      }
+      if (ps.length >= 2) {
+        const a = this.toLocal(ps[0]), b = this.toLocal(ps[1]); if (!a || !b) return;
+        this.applyAt((a.y + b.y) / 2, Math.abs(a.x - b.x) / 2);
+      } else {
+        const p = this.toLocal(e); if (!p) return; this.applyAt(p.y, Math.abs(p.x));
+      }
+    });
+    const up = e => { this.pointers.delete(e.pointerId); if (!this.pointers.size) { this.pinchDist = 0; this.startSound(false); } };
+    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+    el.addEventListener('contextmenu', e => e.preventDefault());
+    el.addEventListener('wheel', e => {
+      if (this.state.screen === 'gallery' || this.state.screen === 'start') return; e.preventDefault();
+      if (this.state.screen === 'wheel' && !e.ctrlKey && !e.shiftKey) this.changeHeight(e.deltaY < 0 ? 0.04 : -0.04); else this.orbit(0, 0, e.deltaY * 0.01);
+    }, { passive: false });
+  }
+  changeHeight(d) { this.snapshot(); this.height = Math.min(1.6, Math.max(0.35, this.height + d)); this.refresh(); this.forceUpdate(); }
+
+  // --- sound: soft wheel hum
+  startSound(touching) {
+    if (!this.state.sound) return;
+    if (!this.audio) {
+      const ctx = this.audio = new (window.AudioContext || window.webkitAudioContext)();
+      const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 320;
+      this.gain = ctx.createGain(); this.gain.gain.value = 0;
+      src.connect(f).connect(this.gain).connect(ctx.destination); src.start();
+      const hum = ctx.createOscillator(); hum.type = 'sine'; hum.frequency.value = 55;
+      this.humGain = ctx.createGain(); this.humGain.gain.value = 0; hum.connect(this.humGain).connect(ctx.destination); hum.start();
+    }
+    if (this.audio.state === 'suspended') this.audio.resume();
+    const t = this.audio.currentTime;
+    this.humGain.gain.setTargetAtTime(this.state.spinning ? 0.05 : 0, t, 0.3);
+    this.gain.gain.setTargetAtTime(touching ? 0.12 : 0.02, t, 0.15);
+  }
+  stopSound() { if (this.audio) { this.gain.gain.value = 0; this.humGain.gain.value = 0; } }
+
+  // --- firing
+  startFire() {
+    if (!this.state.glaze) this.setGlaze(GLAZES[0]);
+    this.setState({ screen: 'firing', firePct: 0 });
+    clearInterval(this.fireTimer);
+    this.fireTimer = setInterval(() => {
+      const pct = Math.min(100, this.state.firePct + 2);
+      const glow = pct < 60 ? pct / 60 : (100 - pct) / 40;
+      if (this.mat) { this.mat.emissive.set(0xff6a1a); this.mat.emissiveIntensity = glow * 0.45; }
+      this.setState({ firePct: pct });
+      if (pct >= 100) { clearInterval(this.fireTimer); this.mat.emissiveIntensity = 0; this.setState({ screen: 'done', fired: true }); }
+    }, 120);
+  }
+  setGlaze(g) {
+    if (this.mat) { this.mat.color.set(g.color); this.mat.roughness = g.rough; this.mat.metalness = 0.05; }
+    this.setState({ glaze: g });
+  }
+  resetMaterial() { if (this.mat) { this.mat.color.set(CLAY); this.mat.roughness = 0.95; this.mat.metalness = 0; this.mat.emissiveIntensity = 0; } }
+
+  renderVals() {
+    const s = this.state, screen = s.screen;
+    const labels = { start: '', wheel: 'An der Scheibe', glaze: 'Glasieren', firing: 'Brennen', done: 'Fertig', gallery: 'Galerie' };
+    const fireTemp = Math.round(20 + 1230 * (s.firePct < 60 ? s.firePct / 60 : Math.max(0.02, (100 - s.firePct) / 40)));
+    return {
+      stepLabel: labels[screen], isStart: screen === 'start', isWheel: screen === 'wheel', isGlaze: screen === 'glaze',
+      isFiring: screen === 'firing', isDone: screen === 'done', isGallery: screen === 'gallery',
+      canvasDisplay: ['wheel', 'glaze', 'firing', 'done'].includes(screen) ? 'flex' : 'none',
+      showGalleryBtn: screen !== 'gallery' && screen !== 'start', galleryCount: s.gallery.length, hasGallery: s.gallery.length > 0,
+      galleryEmpty: s.gallery.length === 0, mountRef: this.mountRef, hint: s.hint,
+      spinLabel: s.spinning ? '⏸ Scheibe anhalten' : '▶ Scheibe drehen', soundLabel: s.sound ? '🔊 Ton an' : '🔇 Ton aus',
+      firePct: s.firePct + '%', fireTemp: fireTemp + ' °C',
+      fireText: s.firePct < 60 ? 'Der Ofen heizt langsam auf. Die Glasur schmilzt und wird glänzend.' : 'Der Ofen kühlt ab. Gleich können Sie Ihr Stück herausnehmen.',
+      glazeName: s.glaze ? s.glaze.name : '',
+      glazes: GLAZES.map(g => ({ name: g.name, color: g.color, border: s.glaze && s.glaze.name === g.name ? '#B45E3A' : '#D9C9B2', pick: () => this.setGlaze(g) })),
+      gallery: s.gallery.map((w, i) => ({ ...w, thumbStyle: { width: '100%', aspectRatio: '1', backgroundColor: '#E2D2B9', backgroundImage: `url("${w.img}")`, backgroundSize: 'cover', backgroundPosition: 'center' }, remove: () => { const gallery = s.gallery.filter((_, j) => j !== i); localStorage.setItem(KEY, JSON.stringify(gallery)); this.setState({ gallery }); } })),
+      startNew: () => { this.profile = defaultProfile(); this.height = 1; this.history = []; this.resetMaterial(); this.refresh(); this.setState({ screen: 'wheel', glaze: null, fired: false, firePct: 0, spinning: true }); },
+      goGallery: () => this.setState({ screen: 'gallery' }),
+      resetView: () => this.resetCamera(),
+      goGlaze: () => this.setState({ screen: 'glaze' }),
+      backToWheel: () => { this.resetMaterial(); this.setState({ screen: 'wheel', glaze: null }); },
+      startFire: () => this.startFire(),
+      taller: () => this.changeHeight(0.08), shorter: () => this.changeHeight(-0.08),
+      undo: () => { const h = this.history.pop(); if (!h) return; this.profile = h.p; this.height = h.h; this.refresh(); },
+      resetClay: () => { this.snapshot(); this.profile = defaultProfile(); this.height = 1; this.refresh(); },
+      toggleSpin: () => this.setState({ spinning: !s.spinning }, () => this.startSound(false)),
+      toggleSound: () => this.setState({ sound: !s.sound }, () => { if (this.state.sound) this.startSound(false); else this.stopSound(); }),
+      saveToGallery: () => {
+        this.renderer.render(this.scene, this.camera);
+        const c = this.renderer.domElement, size = Math.min(c.width, c.height), out = document.createElement('canvas'); out.width = out.height = 480;
+        const ctx = out.getContext('2d'); ctx.fillStyle = '#E8DAC2'; ctx.fillRect(0, 0, 480, 480);
+        ctx.drawImage(c, (c.width - size) / 2, (c.height - size) / 2, size, size, 0, 0, 480, 480);
+        const w = { img: out.toDataURL('image/jpeg', 0.8), glaze: s.glaze ? s.glaze.name : 'Unglasiert', date: new Date().toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }) };
+        const gallery = [w, ...s.gallery].slice(0, 30);
+        try { localStorage.setItem(KEY, JSON.stringify(gallery)); } catch (e) {}
+        this.setState({ gallery, screen: 'gallery' });
+      },
+    };
+  }
+}
+</script>
+<!-- ===== VARIANT A — STATIC (normal games) ===== -->
+<script src="./version.js"></script>
+<nav id="game-nav" aria-label="Game navigation" style="position:fixed;right:10px;bottom:8px;z-index:2147483647;display:flex;gap:12px;align-items:center;font:600 13px/1.4 system-ui,-apple-system,sans-serif;padding:6px 11px;border-radius:8px;background:rgba(15,17,26,.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);opacity:.55;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.55">
+  <span id="version-badge" title="Version" style="color:#5a6072"></span>
+  <span style="color:#5a6072" aria-hidden="true">·</span>
+  <a href="https://github.freaxnx01.ch/games/" style="color:#8fd8e8;text-decoration:none">More Games…</a>
+  <span style="color:#5a6072" aria-hidden="true">·</span>
+  <a href="https://github.com/freaxnx01/game-toepferscheibe" target="_blank" rel="noopener" style="color:#8fd8e8;text-decoration:none">Source</a>
+  <span style="color:#5a6072" aria-hidden="true">·</span>
+  <a href="https://github.com/freaxnx01/game-toepferscheibe/issues/new?title=%5BFeedback%5D%20game-toepferscheibe&labels=feedback" target="_blank" rel="noopener" style="color:#8fd8e8;text-decoration:none">Feedback</a>
+  <span style="color:#5a6072" aria-hidden="true">·</span>
+  <a class="github-button" href="https://github.com/freaxnx01/game-toepferscheibe" data-icon="octicon-star" data-size="small" data-show-count="true" aria-label="Star freaxnx01/game-toepferscheibe on GitHub">Star</a>
+</nav>
+<script>
+  // Version badge → CHANGELOG. Text comes only from window.GAME_VERSION so
+  // version.js stays the single source (never hardcode the literal here).
+  (function () {
+    var el = document.getElementById('version-badge');
+    if (!el) return;
+    var a = document.createElement('a');
+    a.href = 'https://github.com/freaxnx01/game-toepferscheibe/blob/main/CHANGELOG.md';
+    a.target = '_blank'; a.rel = 'noopener'; a.title = 'Changelog';
+    a.textContent = 'v' + (window.GAME_VERSION || '0.0.0');
+    a.style.color = 'inherit'; a.style.textDecoration = 'none';
+    el.appendChild(a);
+  })();
+</script>
+<script async defer crossorigin="anonymous" src="https://buttons.github.io/buttons.js"></script>
+<!-- game-nav-fullscreen:start -->
+<script>
+// Fullscreen toggle for #game-nav (freaxnx01.github.io issue #25).
+// Self-contained: inserts a button into whatever #game-nav exists and
+// re-asserts it for 10 s, so dc bundles that replaceWith() the DOM keep it.
+(function () {
+  var d = document;
+  if (!(d.fullscreenEnabled || d.webkitFullscreenEnabled)) return;
+  function fsEl() { return d.fullscreenElement || d.webkitFullscreenElement || null; }
+  function sync() {
+    var b = d.getElementById("fs-toggle");
+    if (!b) return;
+    var on = !!fsEl();
+    b.textContent = on ? "✕" : "⛶";
+    b.title = on ? "Exit fullscreen" : "Fullscreen";
+    b.setAttribute("aria-label", b.title);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+  function toggle() {
+    var p;
+    try {
+      if (fsEl()) {
+        p = (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+      } else {
+        var r = d.documentElement;
+        p = (r.requestFullscreen || r.webkitRequestFullscreen).call(r);
+      }
+    } catch (e) {}
+    if (p && p.catch) p.catch(function () {});
+  }
+  function sep() {
+    var s = d.createElement("span");
+    s.setAttribute("aria-hidden", "true");
+    s.style.cssText = "color:#5a6072";
+    s.textContent = "·";
+    return s;
+  }
+  function ensure() {
+    var nav = d.getElementById("game-nav");
+    if (!nav || d.getElementById("fs-toggle")) return;
+    var b = d.createElement("button");
+    b.id = "fs-toggle";
+    b.type = "button";
+    b.style.cssText = "background:none;border:0;padding:0;margin:0;cursor:pointer;color:#8fd8e8;font:inherit;line-height:1";
+    // blur(): keyboard games would otherwise re-trigger the focused button
+    // with Enter/Space and silently toggle fullscreen back.
+    b.addEventListener("click", function () { toggle(); b.blur(); });
+    var badge = d.getElementById("version-badge");
+    if (badge && badge.parentNode === nav) {
+      nav.insertBefore(b, badge.nextSibling);
+      nav.insertBefore(sep(), b);
+    } else {
+      nav.insertBefore(sep(), nav.firstChild);
+      nav.insertBefore(b, nav.firstChild);
+    }
+    sync();
+  }
+  d.addEventListener("fullscreenchange", sync);
+  d.addEventListener("webkitfullscreenchange", sync);
+  d.addEventListener("DOMContentLoaded", ensure);
+  window.addEventListener("load", ensure);
+  ensure();
+  var n = 0, iv = setInterval(function () { ensure(); if (++n >= 40) clearInterval(iv); }, 250);
+})();
+</script>
+<!-- game-nav-fullscreen:end -->
+<!-- game-nav-buildtime:start -->
+<script>
+// Build-time tooltip for #version-badge: when this page was last deployed
+// (GitHub Pages serves the build time as Last-Modified), in the visitor's own
+// time zone, plus how long ago. Self-contained and delegated on document, so
+// the age is fresh on every hover and a badge that gets recreated keeps it.
+(function () {
+  var d = document;
+  var built = new Date(d.lastModified);
+  if (isNaN(built)) return;
+  var WORDS = {
+    en: { now: "just now", d: ["day", "days"], h: ["hour", "hours"], m: ["minute", "minutes"] },
+    de: { now: "gerade eben", d: ["Tag", "Tagen"], h: ["Stunde", "Stunden"], m: ["Minute", "Minuten"] }
+  };
+  // The two largest units: "1 day 2 hours", "1 hour 35 minutes", "35 minutes".
+  function ago(ms, lang) {
+    var w = WORDS[lang], mins = Math.floor(ms / 60000);
+    if (mins < 1) return w.now;
+    var parts = [[Math.floor(mins / 1440), w.d], [Math.floor(mins / 60) % 24, w.h], [mins % 60, w.m]];
+    while (!parts[0][0]) parts.shift();
+    var text = parts.slice(0, 2).filter(function (p) { return p[0]; }).map(function (p) {
+      return p[0] + " " + p[1][p[0] === 1 ? 0 : 1];
+    }).join(" ");
+    return lang === "de" ? "vor " + text : text + " ago";
+  }
+  function tip() {
+    var lang = window.GG_LANG === "de" || (!window.GG_LANG && /^de/i.test(navigator.language || "")) ? "de" : "en";
+    // The browser's own date format, unless the game was switched to the other language.
+    var locale = (navigator.language || "").toLowerCase().indexOf(lang) === 0 ? undefined : lang;
+    var when = built.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
+    return "Build: " + when + " (" + ago(Date.now() - built, lang) + ") · Changelog";
+  }
+  function refresh(e) {
+    var badge = e.target && e.target.closest && e.target.closest("#version-badge");
+    if (!badge) return;
+    var t = tip(), a = badge.querySelector("a");
+    badge.title = t;
+    if (a) a.title = t;
+  }
+  d.addEventListener("mouseover", refresh);
+  d.addEventListener("focusin", refresh);
+})();
+</script>
+<!-- game-nav-buildtime:end -->
+</body>
+</html>
