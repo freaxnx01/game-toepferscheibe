@@ -371,26 +371,28 @@ class Component extends DCLogic {
   startSound() {
     if (!this.state.sound) return;
     if (!this.audio) {
-      const ctx = this.audio = new (window.AudioContext || window.webkitAudioContext)(), M = Pottery.MOTOR_GAIN;
+      const ctx = this.audio = new (window.AudioContext || window.webkitAudioContext)();
       const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), d = buf.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       const noise = () => { const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; s.start(); return s; };
       const filt = (type, f, q) => { const n = ctx.createBiquadFilter(); n.type = type; n.frequency.value = f; if (q) n.Q.value = q; return n; };
       const lfo = (hz, depth, target) => { const o = ctx.createOscillator(); o.frequency.value = hz; const g = ctx.createGain(); g.gain.value = depth; o.connect(g).connect(target); o.start(); };
       this.motorGain = ctx.createGain(); this.motorGain.gain.value = 0;
-      noise().connect(filt('bandpass', 140, 0.8)).connect(this.motorGain).connect(ctx.destination);
-      lfo(0.115, 0.25 * M, this.motorGain.gain);
+      const wobble = ctx.createGain(); wobble.gain.value = 1;
+      noise().connect(filt('bandpass', 140, 0.8)).connect(this.motorGain).connect(wobble).connect(ctx.destination);
+      lfo(0.115, 0.25, wobble.gain);
       const tri = ctx.createOscillator(); tri.type = 'triangle'; tri.frequency.value = 50; tri.start();
       this.humGain = ctx.createGain(); this.humGain.gain.value = 0; tri.connect(filt('lowpass', 120)).connect(this.humGain).connect(ctx.destination);
       this.rubNode = ctx.createGain(); this.rubNode.gain.value = 0;
-      noise().connect(filt('bandpass', 900, 0.6)).connect(filt('lowpass', 2500)).connect(this.rubNode).connect(ctx.destination);
-      lfo(0.7, 0.03, this.rubNode.gain);
+      const flutter = ctx.createGain(); flutter.gain.value = 0.7;
+      noise().connect(filt('bandpass', 900, 0.6)).connect(filt('lowpass', 2500)).connect(this.rubNode).connect(flutter).connect(ctx.destination);
+      lfo(0.7, 0.3, flutter.gain);
     }
     if (this.audio.state === 'suspended') this.audio.resume();
     this.setMotor(this.state.spinning);
   }
   setMotor(on) {
-    if (!this.audio) return;
+    if (!this.audio || !this.state.sound) return;
     const t = this.audio.currentTime;
     this.motorGain.gain.setTargetAtTime(on ? Pottery.MOTOR_GAIN : 0, t, 0.6);
     this.humGain.gain.setTargetAtTime(on ? 0.012 : 0, t, 0.6);
