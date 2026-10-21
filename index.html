@@ -323,7 +323,7 @@ class Component extends DCLogic {
       el.setPointerCapture(e.pointerId);
       if (!this.pointers.size) this.mode = (this.state.screen === 'wheel' && e.button === 0 && this.hitsPot(e)) ? 'shape' : 'orbit';
       this.pointers.set(e.pointerId, e);
-      if (this.mode === 'shape') { this.snapshot(); this.startSound(true); }
+      if (this.mode === 'shape') { this.snapshot(); this.startSound(); this.lastMove = null; }
     });
     el.addEventListener('pointermove', e => {
       if (!this.pointers.has(e.pointerId)) return;
@@ -336,6 +336,8 @@ class Component extends DCLogic {
         } else { this.orbit(-(e.clientX - prev.clientX) * 0.006, (e.clientY - prev.clientY) * 0.005); }
         return;
       }
+      const now = performance.now(), dt = this.lastMove ? now - this.lastMove : 0; this.lastMove = now;
+      if (dt > 0) this.setRub(Math.hypot(e.clientX - prev.clientX, e.clientY - prev.clientY) / dt * 1000);
       if (ps.length >= 2) {
         const a = this.toLocal(ps[0]), b = this.toLocal(ps[1]); if (!a || !b) return;
         this.applyAt((a.y + b.y) / 2, Math.abs(a.x - b.x) / 2);
@@ -343,7 +345,7 @@ class Component extends DCLogic {
         const p = this.toLocal(e); if (!p) return; this.applyAt(p.y, Math.abs(p.x));
       }
     });
-    const up = e => { this.pointers.delete(e.pointerId); if (!this.pointers.size) { this.pinchDist = 0; this.startSound(false); } };
+    const up = e => { this.pointers.delete(e.pointerId); if (!this.pointers.size) { this.pinchDist = 0; this.lastMove = null; this.setRub(0); } };
     el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
     el.addEventListener('contextmenu', e => e.preventDefault());
     el.addEventListener('wheel', e => {
@@ -365,26 +367,44 @@ class Component extends DCLogic {
   }
   changeHeight(d) { this.snapshot(); this.height = Math.min(1.6, Math.max(0.35, this.height + d)); this.refresh(); this.forceUpdate(); }
 
-  // --- sound: soft wheel hum
-  startSound(touching) {
+  // --- sound: soft motor hum + speed-dependent clay rub
+  startSound() {
     if (!this.state.sound) return;
     if (!this.audio) {
-      const ctx = this.audio = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = this.audio = new (window.AudioContext || window.webkitAudioContext)(), M = Pottery.MOTOR_GAIN;
       const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), d = buf.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-      const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
-      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 320;
-      this.gain = ctx.createGain(); this.gain.gain.value = 0;
-      src.connect(f).connect(this.gain).connect(ctx.destination); src.start();
-      const hum = ctx.createOscillator(); hum.type = 'sine'; hum.frequency.value = 55;
-      this.humGain = ctx.createGain(); this.humGain.gain.value = 0; hum.connect(this.humGain).connect(ctx.destination); hum.start();
+      const noise = () => { const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; s.start(); return s; };
+      const filt = (type, f, q) => { const n = ctx.createBiquadFilter(); n.type = type; n.frequency.value = f; if (q) n.Q.value = q; return n; };
+      const lfo = (hz, depth, target) => { const o = ctx.createOscillator(); o.frequency.value = hz; const g = ctx.createGain(); g.gain.value = depth; o.connect(g).connect(target); o.start(); };
+      this.motorGain = ctx.createGain(); this.motorGain.gain.value = 0;
+      noise().connect(filt('bandpass', 140, 0.8)).connect(this.motorGain).connect(ctx.destination);
+      lfo(0.115, 0.25 * M, this.motorGain.gain);
+      const tri = ctx.createOscillator(); tri.type = 'triangle'; tri.frequency.value = 50; tri.start();
+      this.humGain = ctx.createGain(); this.humGain.gain.value = 0; tri.connect(filt('lowpass', 120)).connect(this.humGain).connect(ctx.destination);
+      this.rubNode = ctx.createGain(); this.rubNode.gain.value = 0;
+      noise().connect(filt('bandpass', 900, 0.6)).connect(filt('lowpass', 2500)).connect(this.rubNode).connect(ctx.destination);
+      lfo(0.7, 0.03, this.rubNode.gain);
     }
     if (this.audio.state === 'suspended') this.audio.resume();
-    const t = this.audio.currentTime;
-    this.humGain.gain.setTargetAtTime(this.state.spinning ? 0.05 : 0, t, 0.3);
-    this.gain.gain.setTargetAtTime(touching ? 0.12 : 0.02, t, 0.15);
+    this.setMotor(this.state.spinning);
   }
-  stopSound() { if (this.audio) { this.gain.gain.value = 0; this.humGain.gain.value = 0; } }
+  setMotor(on) {
+    if (!this.audio) return;
+    const t = this.audio.currentTime;
+    this.motorGain.gain.setTargetAtTime(on ? Pottery.MOTOR_GAIN : 0, t, 0.6);
+    this.humGain.gain.setTargetAtTime(on ? 0.012 : 0, t, 0.6);
+  }
+  setRub(speed) {
+    if (!this.audio || !this.state.sound) return;
+    const t = this.audio.currentTime, g = this.rubNode.gain;
+    g.cancelScheduledValues(t); g.setTargetAtTime(Pottery.rubGain(speed), t, 0.05); g.setTargetAtTime(0, t + 0.12, 0.2);
+  }
+  stopSound() {
+    if (!this.audio) return;
+    const t = this.audio.currentTime;
+    for (const g of [this.motorGain.gain, this.humGain.gain, this.rubNode.gain]) { g.cancelScheduledValues(t); g.setTargetAtTime(0, t, 0.3); }
+  }
 
   // --- firing
   startFire() {
@@ -433,8 +453,8 @@ class Component extends DCLogic {
       taller: () => this.changeHeight(0.08), shorter: () => this.changeHeight(-0.08),
       undo: () => { const h = this.history.pop(); if (!h) return; this.profile = h.p; this.height = h.h; this.notches = h.n; this.corners = h.c; this.lump = h.l; this.editId = h.e; this.refresh(); this.forceUpdate(); },
       resetClay: () => { this.snapshot(); this.profile = defaultProfile(); this.height = 1; this.notches = []; this.corners = 'rund'; this.editId = null; this.refresh(); },
-      toggleSpin: () => this.setState({ spinning: !s.spinning }, () => this.startSound(false)),
-      toggleSound: () => this.setState({ sound: !s.sound }, () => { if (this.state.sound) this.startSound(false); else this.stopSound(); }),
+      toggleSpin: () => this.setState({ spinning: !s.spinning }, () => this.setMotor(this.state.spinning)),
+      toggleSound: () => this.setState({ sound: !s.sound }, () => { if (this.state.sound) this.startSound(); else this.stopSound(); }),
       saveToGallery: () => {
         this.renderer.render(this.scene, this.camera);
         const c = this.renderer.domElement, size = Math.min(c.width, c.height), out = document.createElement('canvas'); out.width = out.height = 480;

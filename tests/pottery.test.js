@@ -38,3 +38,15 @@ test('upsertEntry', () => {
 });
 
 test('newId unique', () => assert.notEqual(P.newId(), P.newId()));
+
+test('rubGain', () => {
+  assert.equal(P.rubGain(0), 0);
+  assert.equal(P.rubGain(20), 0);
+  assert.ok(P.rubGain(300) > 0);
+  assert.ok(P.rubGain(300) <= P.rubGain(600));
+  assert.equal(P.rubGain(1200), 0.12);
+  assert.equal(P.rubGain(5000), 0.12);
+  assert.equal(P.rubGain(-50), 0);
+  assert.equal(P.rubGain(NaN), 0);
+  assert.equal(P.MOTOR_GAIN, 0.045);
+});

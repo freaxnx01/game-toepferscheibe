@@ -11,7 +11,9 @@
     const out = i >= 0 ? gallery.map((e, j) => (j === i ? entry : e)) : [entry, ...gallery];
     return out.slice(0, MAX_WORKS);
   };
-  const api = { RINGS, MINR, MAXR, HMIN, HMAX, MAX_WORKS, defaultProfile, newId, makeShape, canEdit, upsertEntry };
+  const MOTOR_GAIN = 0.045;
+  const rubGain = (v) => { if (!(v > 20)) return 0; const x = Math.min(1, (v - 20) / 1180); return 0.12 * x * x * (3 - 2 * x); };
+  const api = { MOTOR_GAIN, rubGain, RINGS, MINR, MAXR, HMIN, HMAX, MAX_WORKS, defaultProfile, newId, makeShape, canEdit, upsertEntry };
   if (typeof window !== 'undefined') window.Pottery = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();

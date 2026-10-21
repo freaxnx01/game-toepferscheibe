@@ -152,7 +152,25 @@ def no_back_after_save(b, url):
     assert page.get_by_role('button', name=BACK).count() == 0, 'back button after save'
 
 
-FLOWS = [edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
+def sound_drag(b, url):
+    page = new_page(b, url)
+    errs = []
+    page.on('pageerror', lambda e: errs.append(str(e)))
+    page.on('console', lambda m: m.type == 'error' and errs.append(m.text))
+    click(page, 'Ton auf die Scheibe legen')
+    click(page, '🔇 Klang aus')
+    wait_text(page, 'Klang an')
+    box = page.locator('canvas').first.bounding_box()
+    cx, cy = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
+    page.mouse.move(cx, cy); page.mouse.down()
+    for i in range(12): page.mouse.move(cx + (i % 3) * 6, cy - i * 8)
+    page.mouse.up()
+    click(page, '▶ Scheibe drehen') if page.get_by_role('button', name='▶ Scheibe drehen').count() else click(page, '⏸ Scheibe anhalten')
+    click(page, '🔊 Klang an')
+    assert not errs, errs[:2]
+
+
+FLOWS = [sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
 
 
 def main():
@@ -161,7 +179,8 @@ def main():
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(args=ARGS)
-            for f in FLOWS:
+            only = os.environ.get('FLOW')
+            for f in [f for f in FLOWS if not only or f.__name__ == only]:
                 try: f(browser, url); print('PASS', f.__name__, flush=True)
                 except Exception as e: failed += 1; print(f'FAIL {f.__name__}: {str(e).splitlines()[0] if str(e) else repr(e)}', flush=True)
                 finally:
