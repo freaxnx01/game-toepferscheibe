@@ -1,0 +1,118 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const P = require('../pottery.js');
+
+test('defaultProfile', () => {
+  const p = P.defaultProfile();
+  assert.equal(p.length, 28);
+  assert.ok(Math.abs(p[0] - 0.95) < 1e-9);
+  assert.ok(Math.abs(p[27] - 0.60) < 1e-9);
+});
+
+test('makeShape copies and versions', () => {
+  const profile = P.defaultProfile(), notches = [1, 2];
+  const s = P.makeShape({ profile, height: 1, notches });
+  assert.equal(s.version, 1);
+  profile[0] = 9; notches.push(3);
+  assert.notEqual(s.profile[0], 9);
+  assert.deepEqual(s.notches, [1, 2]);
+  assert.equal(s.corners, 'rund');
+  assert.deepEqual(s.lump, { size: 'mittel', form: 'kegel' });
+});
+
+test('canEdit', () => {
+  assert.equal(P.canEdit({ img: 'x', glaze: null, date: 1 }), false);
+  assert.equal(P.canEdit({ shape: P.makeShape({ profile: P.defaultProfile(), height: 1 }) }), false);
+  assert.equal(P.canEdit({ id: 'a', shape: P.makeShape({ profile: P.defaultProfile(), height: 1 }) }), true);
+});
+
+test('upsertEntry', () => {
+  const g = [{ id: 'a', img: 1 }, { id: 'b', img: 2 }, { id: 'c', img: 3 }];
+  const r = P.upsertEntry(g, { id: 'b', img: 9 }, 'b');
+  assert.equal(r.length, 3); assert.equal(r[1].img, 9);
+  const r2 = P.upsertEntry(g, { id: 'n', img: 7 }, 'gone');
+  assert.equal(r2.length, 4); assert.equal(r2[0].id, 'n');
+  const big = Array.from({ length: 30 }, (_, i) => ({ id: 'i' + i }));
+  const r3 = P.upsertEntry(big, { id: 'new' }, null);
+  assert.equal(r3.length, 30); assert.equal(r3[0].id, 'new');
+});
+
+test('newId unique', () => assert.notEqual(P.newId(), P.newId()));
+
+test('rubGain', () => {
+  assert.equal(P.rubGain(0), 0);
+  assert.equal(P.rubGain(20), 0);
+  assert.ok(P.rubGain(300) > 0);
+  assert.ok(P.rubGain(300) <= P.rubGain(600));
+  assert.equal(P.rubGain(1200), 0.12);
+  assert.equal(P.rubGain(5000), 0.12);
+  assert.equal(P.rubGain(-50), 0);
+  assert.equal(P.rubGain(NaN), 0);
+  assert.equal(P.MOTOR_GAIN, 0.045);
+});
+
+test('lumpShape', () => {
+  const d = P.lumpShape('mittel', 'kegel');
+  assert.deepEqual(d, { profile: P.defaultProfile(), height: 1 });
+  const s = P.lumpShape('klein', 'kegel'), g = P.lumpShape('gross', 'kegel');
+  assert.ok(Math.abs(s.profile[0] - 0.95 * 0.75) < 1e-9 && s.height === 0.7);
+  assert.ok(Math.abs(g.profile[0] - 0.95 * 1.25) < 1e-9 && g.height === 1.3);
+  for (const size of ['klein', 'mittel', 'gross']) for (const form of ['kugel', 'kegel']) {
+    const { profile, height } = P.lumpShape(size, form);
+    assert.equal(profile.length, P.RINGS);
+    assert.ok(profile.every((r) => r >= 0.2 && r <= P.MAXR), `${size}/${form} radii`);
+    assert.ok(height >= P.HMIN && height <= P.HMAX);
+    if (form === 'kegel') for (let i = 1; i < profile.length; i++) assert.ok(profile[i] <= profile[i - 1] + 1e-12);
+    else {
+      const w = profile.indexOf(Math.max(...profile));
+      assert.ok(w >= 8 && w <= 20, `${size} widest at ${w}`);
+      assert.ok(profile[profile.length - 1] >= 0.35);
+    }
+  }
+});
+
+const TAU = 2 * Math.PI;
+test('cornerFactor', () => {
+  for (const a of [0, 1, 3, 6]) assert.equal(P.cornerFactor('rund', a), 1);
+  const peaks = (m) => { const v = Array.from({ length: 720 }, (_, i) => P.cornerFactor(m, TAU * i / 720)); return v.filter((x, i) => x > v[(i + 719) % 720] + 1e-12 && x >= v[(i + 1) % 720]).length; };
+  for (const m of P.CORNERS) {
+    const mean = Array.from({ length: 720 }, (_, i) => P.cornerFactor(m, TAU * i / 720)).reduce((a, b) => a + b) / 720;
+    assert.ok(Math.abs(mean - 1) < 0.02, m + ' ' + mean);
+  }
+  assert.equal(peaks('viereckig'), 4);
+  assert.equal(peaks('dreieckig'), 3);
+});
+test('cornerFactor treats unknown modes like rund', () => {
+  for (const m of ['constructor', 'toString', '__proto__', 'bogus', undefined, null]) assert.equal(P.cornerFactor(m, 1.2), 1, String(m));
+});
+test('rimDrop', () => {
+  assert.equal(P.rimDrop([], 1), 0);
+  assert.ok(Math.abs(P.rimDrop([1], 1) - P.NOTCH_DEPTH) < 1e-9);
+  assert.ok(P.rimDrop([0.05], TAU - 0.05) > 0);
+  assert.equal(P.rimDrop([1], 2), 0);
+});
+test('addNotch', () => {
+  assert.deepEqual(P.addNotch([1], 1.1), [1]);
+  assert.equal(P.addNotch([1], 2).length, 2);
+  assert.ok(Math.abs(P.addNotch([], -0.5)[0] - (TAU - 0.5)) < 1e-9);
+  let n = []; for (let i = 0; i < 12; i++) n = P.addNotch(n, i * 0.5);
+  assert.equal(n.length, P.MAX_NOTCHES);
+});
+test('angleOf', () => {
+  assert.ok(Math.abs(P.angleOf(1, 0) - Math.PI / 2) < 1e-9);
+  assert.equal(P.angleOf(0, 1), 0);
+  assert.ok(Math.abs(P.angleOf(0, -1) - Math.PI) < 1e-9);
+});
+test('buildMesh', () => {
+  const profile = P.defaultProfile(), n = P.outline(profile, 1).length;
+  const m = P.buildMesh(P.makeShape({ profile, height: 1 }));
+  assert.equal(m.positions.length, 73 * n * 3);
+  assert.ok(![...m.positions].some(Number.isNaN));
+  const top = (mesh, th) => { let mx = -1; for (let i = 0; i < 73; i++) { if (Math.abs(TAU * i / 72 - th) > 1e-9) continue; for (let j = 0; j < n; j++) mx = Math.max(mx, mesh.positions[(i * n + j) * 3 + 1]); } return mx; };
+  assert.ok(Math.abs(top(m, 0) - 2) < 1e-6);
+  const mn = P.buildMesh(P.makeShape({ profile, height: 1, notches: [0] }));
+  assert.ok(Math.abs(top(mn, 0) - (2 - P.NOTCH_DEPTH)) < 1e-6);
+  assert.ok(Math.abs(top(mn, Math.PI) - 2) < 1e-6);
+  const mv = P.buildMesh(P.makeShape({ profile, height: 1, corners: 'viereckig', notches: [0, 6.2] }));
+  assert.ok(![...mv.positions].some(Number.isNaN));
+});

@@ -12,6 +12,15 @@ Play it: <https://github.freaxnx01.ch/game-toepferscheibe/>
 - **Drag on the clay** (one or two fingers, or the mouse) — shape it
 - **Drag beside the clay** — rotate the view; pinch beside it to zoom
 - **Mouse wheel** — raise/lower the clay; with Ctrl/Shift, zoom
+- **Werkzeug** (toggle at the top of the side panel, next to „Formen“) — stops the wheel;
+  tap the rim for a notch (up to 8); the corner buttons make the pot Rund, Oval,
+  Dreieckig or Viereckig. „Rückgängig“ undoes both. „Formen“ switches back.
+- **Choosing the lump** — on the start screen pick size (Klein/Mittel/Gross) and form
+  (Kugel/Kegel); at the wheel, „Neuer Tonklumpen“ opens the same choice („Ton auflegen“ places it)
+- **Weiter töpfern** (gallery) — reopens a piece at the wheel; saving it again replaces the original
+- **← Zurück zu meinem Stück** — shown in the gallery and on the start screen while a piece is unsaved
+- **Klang an/aus** (off by default) — soft motor hum while the wheel turns, plus a clay rub
+  sound that follows how fast your finger moves
 
 ## Stack
 
