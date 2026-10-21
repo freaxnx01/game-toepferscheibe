@@ -108,6 +108,7 @@ def undo_keeps_link(b, url):
     click(page, 'Weiter töpfern')
     wait_text(page, 'An der Scheibe')
     click(page, 'Neuer Tonklumpen')
+    click(page, 'Ton auflegen')
     click(page, '↶ Rückgängig')
     glaze_fire_save(page)
     assert cards(page) == 1 and len(gallery(page)) == 1, f'expected 1 card, got {cards(page)}/{len(gallery(page))}'
@@ -170,7 +171,35 @@ def sound_drag(b, url):
     assert not errs, errs[:2]
 
 
-FLOWS = [sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
+def lump_choice(b, url):
+    page = new_page(b, url)
+    errs = []
+    page.on('pageerror', lambda e: errs.append(str(e)))
+    click(page, 'Gross'); click(page, 'Kugel')
+    click(page, 'Ton auf die Scheibe legen')
+    wait_text(page, 'An der Scheibe')
+    click(page, 'Neuer Tonklumpen')
+    assert page.get_by_role('button', name='▲ Höher ziehen').count() == 0, 'shaping panel still visible while picking'
+    b_gross = page.get_by_role('button', name='Gross', exact=True).first.evaluate('e => getComputedStyle(e).borderTopColor')
+    assert b_gross == 'rgb(180, 94, 58)', f'current lump not preselected: {b_gross}'
+    click(page, 'Klein')
+    click(page, 'Ton auflegen')
+    click(page, '▲ Höher ziehen')
+    click(page, '↶ Rückgängig')
+    click(page, '↶ Rückgängig')
+    click(page, 'Neuer Tonklumpen')
+    assert page.get_by_role('button', name='Gross', exact=True).first.evaluate('e => getComputedStyle(e).borderTopColor') == 'rgb(180, 94, 58)', 'undo did not restore lump'
+    click(page, 'Abbrechen')
+    glaze_fire_save(page)
+    s = gallery(page)[0]['shape']
+    assert s['lump'] == {'size': 'gross', 'form': 'kugel'}, s['lump']
+    assert abs(s['height'] - 1.3) < 1e-6, s['height']
+    assert not errs, errs[:2]
+    click(page, 'Neues Stück beginnen')
+    wait_text(page, 'Ton auf die Scheibe legen')
+
+
+FLOWS = [lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
 
 
 def main():

@@ -50,3 +50,23 @@ test('rubGain', () => {
   assert.equal(P.rubGain(NaN), 0);
   assert.equal(P.MOTOR_GAIN, 0.045);
 });
+
+test('lumpShape', () => {
+  const d = P.lumpShape('mittel', 'kegel');
+  assert.deepEqual(d, { profile: P.defaultProfile(), height: 1 });
+  const s = P.lumpShape('klein', 'kegel'), g = P.lumpShape('gross', 'kegel');
+  assert.ok(Math.abs(s.profile[0] - 0.95 * 0.75) < 1e-9 && s.height === 0.7);
+  assert.ok(Math.abs(g.profile[0] - 0.95 * 1.25) < 1e-9 && g.height === 1.3);
+  for (const size of ['klein', 'mittel', 'gross']) for (const form of ['kugel', 'kegel']) {
+    const { profile, height } = P.lumpShape(size, form);
+    assert.equal(profile.length, P.RINGS);
+    assert.ok(profile.every((r) => r >= 0.2 && r <= P.MAXR), `${size}/${form} radii`);
+    assert.ok(height >= P.HMIN && height <= P.HMAX);
+    if (form === 'kegel') for (let i = 1; i < profile.length; i++) assert.ok(profile[i] <= profile[i - 1] + 1e-12);
+    else {
+      const w = profile.indexOf(Math.max(...profile));
+      assert.ok(w >= 8 && w <= 20, `${size} widest at ${w}`);
+      assert.ok(profile[profile.length - 1] >= 0.35);
+    }
+  }
+});
