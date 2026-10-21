@@ -280,17 +280,13 @@ class Component extends DCLogic {
     return Math.abs(p.x) < this.profile[idx] + 0.3;
   }
   buildGeo() {
-    const THREE = window.THREE, pts = [];
-    pts.push(new THREE.Vector2(0, 0));
-    for (let i = 0; i < RINGS; i++) pts.push(new THREE.Vector2(this.profile[i], (i / (RINGS - 1)) * 2 * this.height));
-    // hollow vessel: rim, then inner wall back down to a floor
-    const wall = 0.13, floorY = 0.14, h = 2 * this.height;
-    for (let i = RINGS - 1; i >= 0; i--) {
-      const y = (i / (RINGS - 1)) * h; if (y < floorY + 0.05) break;
-      pts.push(new THREE.Vector2(Math.max(this.profile[i] - wall, 0.03), y));
-    }
-    pts.push(new THREE.Vector2(0.03, floorY), new THREE.Vector2(0, floorY));
-    const g = new THREE.LatheGeometry(pts, 72); g.computeVertexNormals(); return g;
+    const THREE = window.THREE, m = Pottery.buildMesh(this.currentShape()), g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(m.positions, 3)); g.setAttribute('uv', new THREE.BufferAttribute(m.uvs, 2)); g.setIndex(m.indices);
+    g.computeVertexNormals();
+    // seam at theta=0/2pi: average the duplicated vertices' normals so no crease shows
+    const nr = g.attributes.normal, n = Pottery.outline(this.profile, this.height).length, last = (m.positions.length / 3) - n;
+    for (let j = 0; j < n; j++) { const x = nr.getX(j) + nr.getX(last + j), y = nr.getY(j) + nr.getY(last + j), z = nr.getZ(j) + nr.getZ(last + j), l = Math.hypot(x, y, z) || 1; nr.setXYZ(j, x / l, y / l, z / l); nr.setXYZ(last + j, x / l, y / l, z / l); }
+    return g;
   }
   refresh() { if (!this.pot) return; this.pot.geometry.dispose(); this.pot.geometry = this.buildGeo(); this.updateCamera(); }
   resize() {

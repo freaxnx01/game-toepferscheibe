@@ -70,3 +70,46 @@ test('lumpShape', () => {
     }
   }
 });
+
+const TAU = 2 * Math.PI;
+test('cornerFactor', () => {
+  for (const a of [0, 1, 3, 6]) assert.equal(P.cornerFactor('rund', a), 1);
+  const peaks = (m) => { const v = Array.from({ length: 720 }, (_, i) => P.cornerFactor(m, TAU * i / 720)); return v.filter((x, i) => x > v[(i + 719) % 720] + 1e-12 && x >= v[(i + 1) % 720]).length; };
+  for (const m of P.CORNERS) {
+    const mean = Array.from({ length: 720 }, (_, i) => P.cornerFactor(m, TAU * i / 720)).reduce((a, b) => a + b) / 720;
+    assert.ok(Math.abs(mean - 1) < 0.02, m + ' ' + mean);
+  }
+  assert.equal(peaks('viereckig'), 4);
+  assert.equal(peaks('dreieckig'), 3);
+});
+test('rimDrop', () => {
+  assert.equal(P.rimDrop([], 1), 0);
+  assert.ok(Math.abs(P.rimDrop([1], 1) - P.NOTCH_DEPTH) < 1e-9);
+  assert.ok(P.rimDrop([0.05], TAU - 0.05) > 0);
+  assert.equal(P.rimDrop([1], 2), 0);
+});
+test('addNotch', () => {
+  assert.deepEqual(P.addNotch([1], 1.1), [1]);
+  assert.equal(P.addNotch([1], 2).length, 2);
+  assert.ok(Math.abs(P.addNotch([], -0.5)[0] - (TAU - 0.5)) < 1e-9);
+  let n = []; for (let i = 0; i < 12; i++) n = P.addNotch(n, i * 0.5);
+  assert.equal(n.length, P.MAX_NOTCHES);
+});
+test('angleOf', () => {
+  assert.ok(Math.abs(P.angleOf(1, 0) - Math.PI / 2) < 1e-9);
+  assert.equal(P.angleOf(0, 1), 0);
+  assert.ok(Math.abs(P.angleOf(0, -1) - Math.PI) < 1e-9);
+});
+test('buildMesh', () => {
+  const profile = P.defaultProfile(), n = P.outline(profile, 1).length;
+  const m = P.buildMesh(P.makeShape({ profile, height: 1 }));
+  assert.equal(m.positions.length, 73 * n * 3);
+  assert.ok(![...m.positions].some(Number.isNaN));
+  const top = (mesh, th) => { let mx = -1; for (let i = 0; i < 73; i++) { if (Math.abs(TAU * i / 72 - th) > 1e-9) continue; for (let j = 0; j < n; j++) mx = Math.max(mx, mesh.positions[(i * n + j) * 3 + 1]); } return mx; };
+  assert.ok(Math.abs(top(m, 0) - 2) < 1e-6);
+  const mn = P.buildMesh(P.makeShape({ profile, height: 1, notches: [0] }));
+  assert.ok(Math.abs(top(mn, 0) - (2 - P.NOTCH_DEPTH)) < 1e-6);
+  assert.ok(Math.abs(top(mn, Math.PI) - 2) < 1e-6);
+  const mv = P.buildMesh(P.makeShape({ profile, height: 1, corners: 'viereckig', notches: [0, 6.2] }));
+  assert.ok(![...mv.positions].some(Number.isNaN));
+});
