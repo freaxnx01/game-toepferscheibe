@@ -113,7 +113,46 @@ def undo_keeps_link(b, url):
     assert cards(page) == 1 and len(gallery(page)) == 1, f'expected 1 card, got {cards(page)}/{len(gallery(page))}'
 
 
-FLOWS = [edit_replaces, old_entry, undo_keeps_link]
+BACK = '← Zurück zu meinem Stück'
+
+
+def back_from_wheel(b, url):
+    page = new_page(b, url)
+    click(page, 'Ton auf die Scheibe legen')
+    click(page, '▲ Höher ziehen')
+    click(page, 'Galerie (0)', exact=False)
+    wait_text(page, 'Meine Werke')
+    assert page.get_by_role('button', name=BACK).count() == 1, 'back button missing'
+    click(page, BACK)
+    wait_text(page, 'An der Scheibe')
+    glaze_fire_save(page)
+    g = gallery(page)
+    assert len(g) == 1 and g[0]['shape']['height'] > 1, f'height lost: {g and g[0]["shape"]["height"]}'
+
+
+def back_during_firing(b, url):
+    page = new_page(b, url)
+    page.set_viewport_size({'width': 640, 'height': 460})
+    page.set_default_timeout(300000)  # software GL: the visible firing canvas can starve the page for minutes
+    click(page, 'Ton auf die Scheibe legen')
+    click(page, 'Fertig – Glasieren →')
+    click(page, 'In den Ofen →')
+    click(page, 'Galerie (0)', exact=False)
+    wait_text(page, 'Meine Werke')
+    page.wait_for_timeout(8000)
+    assert page.get_by_role('heading', name='Meine Werke').count() == 1, 'left the gallery on its own'
+    page.get_by_role('button', name=BACK).first.click(no_wait_after=True)  # the post-click wait starves on the software-GL canvas
+    wait_text(page, 'Fertig gebrannt')
+    assert page.get_by_text('Fertig', exact=True).count() >= 1, 'step label not Fertig'
+
+
+def no_back_after_save(b, url):
+    page = new_page(b, url)
+    make_work(page)
+    assert page.get_by_role('button', name=BACK).count() == 0, 'back button after save'
+
+
+FLOWS = [edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
 
 
 def main():

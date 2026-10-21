@@ -128,6 +128,9 @@
   <sc-if value="{{ isGallery }}" hint-placeholder-val="{{ false }}">
     <main data-screen-label="Galerie" style="flex:1; padding:32px 28px; display:flex; flex-direction:column; gap:24px;">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+        <sc-if value="{{ hasReturn }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ backToWork }}" style="min-height:72px; padding:0 28px; font-size:24px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">← Zurück zu meinem Stück</button>
+        </sc-if>
         <h1 style="font-family:Lora, Georgia, serif; font-size:40px; font-weight:600; margin:0;">Meine Werke</h1>
         <button onClick="{{ startNew }}" style="min-height:72px; padding:0 32px; font-size:26px; font-weight:700; color:#FBF6EC; background:#B45E3A; border:none; border-radius:18px; cursor:pointer; box-shadow:0 6px 0 #8A4428;" style-hover="background:#9B4D2E;">Neues Stück beginnen</button>
       </div>
@@ -178,7 +181,7 @@ const loadGallery = () => { try { return JSON.parse(localStorage.getItem(KEY) ||
 
 class Component extends DCLogic {
   state = {
-    screen: 'start', spinning: true, sound: false, glaze: null, fired: false, firePct: 0,
+    screen: 'start', returnScreen: null, spinning: true, sound: false, glaze: null, fired: false, firePct: 0,
     gallery: loadGallery(), hint: 'Am Ton ziehen formt ihn. Neben dem Ton ziehen (oder rechte Maustaste) dreht die Ansicht; zwei Finger neben dem Ton zoomen.',
   };
   profile = defaultProfile(); height = 1.0; history = []; notches = []; corners = 'rund'; lump = { ...DEFAULT_LUMP }; editId = null; preferredGlaze = null;
@@ -291,7 +294,7 @@ class Component extends DCLogic {
     const sh = w.shape;
     this.profile = sh.profile.slice(); this.height = sh.height; this.notches = (sh.notches || []).slice(); this.corners = sh.corners || 'rund'; this.lump = { ...DEFAULT_LUMP, ...(sh.lump || {}) };
     this.editId = w.id; this.preferredGlaze = w.glaze; this.history = []; this.resetMaterial(); this.refresh();
-    this.setState({ screen: 'wheel', glaze: null, fired: false, firePct: 0, spinning: true });
+    this.setState({ screen: 'wheel', returnScreen: null, glaze: null, fired: false, firePct: 0, spinning: true });
   }
 
   // --- shaping: map screen position to ring index + radius in world units
@@ -393,7 +396,7 @@ class Component extends DCLogic {
       const glow = pct < 60 ? pct / 60 : (100 - pct) / 40;
       if (this.mat) { this.mat.emissive.set(0xff6a1a); this.mat.emissiveIntensity = glow * 0.45; }
       this.setState({ firePct: pct });
-      if (pct >= 100) { clearInterval(this.fireTimer); this.mat.emissiveIntensity = 0; this.setState({ screen: 'done', fired: true }); }
+      if (pct >= 100) { clearInterval(this.fireTimer); this.mat.emissiveIntensity = 0; if (this.state.screen === 'firing') this.setState({ screen: 'done', fired: true }); else this.setState({ fired: true, returnScreen: 'done' }); }
     }, 120);
   }
   setGlaze(g) {
@@ -418,8 +421,10 @@ class Component extends DCLogic {
       glazeName: s.glaze ? s.glaze.name : '',
       glazes: GLAZES.map(g => ({ name: g.name, color: g.color, border: s.glaze && s.glaze.name === g.name ? '#B45E3A' : '#D9C9B2', pick: () => this.setGlaze(g) })),
       gallery: s.gallery.map((w, i) => ({ ...w, canEdit: Pottery.canEdit(w), edit: () => this.loadWork(w), thumbStyle: { width: '100%', aspectRatio: '1', backgroundColor: '#E2D2B9', backgroundImage: `url("${w.img}")`, backgroundSize: 'cover', backgroundPosition: 'center' }, remove: () => { const gallery = s.gallery.filter((_, j) => j !== i); localStorage.setItem(KEY, JSON.stringify(gallery)); this.setState({ gallery }); } })),
-      startNew: () => { this.profile = defaultProfile(); this.height = 1; this.history = []; this.notches = []; this.corners = 'rund'; this.editId = null; this.preferredGlaze = null; this.resetMaterial(); this.refresh(); this.setState({ screen: 'wheel', glaze: null, fired: false, firePct: 0, spinning: true }); },
-      goGallery: () => this.setState({ screen: 'gallery' }),
+      startNew: () => { this.profile = defaultProfile(); this.height = 1; this.history = []; this.notches = []; this.corners = 'rund'; this.editId = null; this.preferredGlaze = null; this.resetMaterial(); this.refresh(); this.setState({ screen: 'wheel', returnScreen: null, glaze: null, fired: false, firePct: 0, spinning: true }); },
+      goGallery: () => this.setState({ screen: 'gallery', returnScreen: ['wheel', 'glaze', 'firing', 'done'].includes(s.screen) ? s.screen : s.returnScreen }),
+      hasReturn: screen === 'gallery' && !!s.returnScreen,
+      backToWork: () => this.setState({ screen: s.returnScreen, returnScreen: null }),
       resetView: () => this.resetCamera(),
       goGlaze: () => { const g = !s.glaze && GLAZES.find(x => x.name === this.preferredGlaze); if (g) this.setGlaze(g); this.setState({ screen: 'glaze' }); },
       backToWheel: () => { this.resetMaterial(); this.setState({ screen: 'wheel', glaze: null }); },
@@ -438,7 +443,7 @@ class Component extends DCLogic {
         const w = { id: Pottery.newId(), img: out.toDataURL('image/jpeg', 0.8), glaze: s.glaze ? s.glaze.name : 'Unglasiert', date: new Date().toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }), shape: this.currentShape() };
         const gallery = Pottery.upsertEntry(s.gallery, w, this.editId); this.editId = w.id;
         try { localStorage.setItem(KEY, JSON.stringify(gallery)); } catch (e) {}
-        this.setState({ gallery, screen: 'gallery' });
+        this.setState({ gallery, screen: 'gallery', returnScreen: null });
       },
     };
   }
