@@ -143,6 +143,9 @@
               <div style="font-size:24px; font-weight:700;">{{ w.glaze }}</div>
               <div style="font-size:20px; color:#6E5A4A;">{{ w.date }}</div>
             </div>
+            <sc-if value="{{ w.canEdit }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ w.edit }}" style="min-height:64px; margin:0 18px 12px; font-size:22px; font-weight:700; color:#FBF6EC; background:#B45E3A; border:none; border-radius:14px; cursor:pointer; box-shadow:0 4px 0 #8A4428;" style-hover="background:#9B4D2E;" style-active="transform:translateY(3px); box-shadow:0 1px 0 #8A4428;">Weiter töpfern</button>
+            </sc-if>
             <button onClick="{{ w.remove }}" style="min-height:56px; margin:0 18px 18px; font-size:20px; font-weight:700; color:#6E5A4A; background:transparent; border:2px solid #D9C9B2; border-radius:12px; cursor:pointer;" style-hover="background:#F0E4D0; color:#35261B;">Entfernen</button>
           </div>
         </sc-for>
@@ -168,6 +171,7 @@ const GLAZES = [
   { name: 'Rost', color: '#9A4E2A', rough: 0.35 },
 ];
 const { RINGS, MINR, MAXR, defaultProfile } = Pottery;
+const DEFAULT_LUMP = { size: 'mittel', form: 'kegel' };
 const CLAY = '#A86B48';
 const KEY = 'toepfern.galerie';
 const loadGallery = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } };
@@ -177,7 +181,7 @@ class Component extends DCLogic {
     screen: 'start', spinning: true, sound: false, glaze: null, fired: false, firePct: 0,
     gallery: loadGallery(), hint: 'Am Ton ziehen formt ihn. Neben dem Ton ziehen (oder rechte Maustaste) dreht die Ansicht; zwei Finger neben dem Ton zoomen.',
   };
-  profile = defaultProfile(); height = 1.0; history = [];
+  profile = defaultProfile(); height = 1.0; history = []; notches = []; corners = 'rund'; lump = { ...DEFAULT_LUMP }; editId = null; preferredGlaze = null;
   mountRef = React.createRef();
   pointers = new Map();
 
@@ -280,7 +284,15 @@ class Component extends DCLogic {
     const w = el.clientWidth, h = el.clientHeight; if (w < 2 || h < 2) return;
     this.renderer.setSize(w, h, true); this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
   }
-  snapshot() { this.history.push({ p: this.profile.slice(), h: this.height }); if (this.history.length > 60) this.history.shift(); }
+  snapshot() { this.history.push({ p: this.profile.slice(), h: this.height, n: this.notches.slice(), c: this.corners, l: { ...this.lump }, e: this.editId }); if (this.history.length > 60) this.history.shift(); }
+
+  currentShape() { return Pottery.makeShape({ profile: this.profile, height: this.height, notches: this.notches, corners: this.corners, lump: this.lump }); }
+  loadWork(w) {
+    const sh = w.shape;
+    this.profile = sh.profile.slice(); this.height = sh.height; this.notches = (sh.notches || []).slice(); this.corners = sh.corners || 'rund'; this.lump = { ...DEFAULT_LUMP, ...(sh.lump || {}) };
+    this.editId = w.id; this.preferredGlaze = w.glaze; this.history = []; this.resetMaterial(); this.refresh();
+    this.setState({ screen: 'wheel', glaze: null, fired: false, firePct: 0, spinning: true });
+  }
 
   // --- shaping: map screen position to ring index + radius in world units
   toLocal(e) {
@@ -405,17 +417,17 @@ class Component extends DCLogic {
       fireText: s.firePct < 60 ? 'Der Ofen heizt langsam auf. Die Glasur schmilzt und wird glänzend.' : 'Der Ofen kühlt ab. Gleich können Sie Ihr Stück herausnehmen.',
       glazeName: s.glaze ? s.glaze.name : '',
       glazes: GLAZES.map(g => ({ name: g.name, color: g.color, border: s.glaze && s.glaze.name === g.name ? '#B45E3A' : '#D9C9B2', pick: () => this.setGlaze(g) })),
-      gallery: s.gallery.map((w, i) => ({ ...w, thumbStyle: { width: '100%', aspectRatio: '1', backgroundColor: '#E2D2B9', backgroundImage: `url("${w.img}")`, backgroundSize: 'cover', backgroundPosition: 'center' }, remove: () => { const gallery = s.gallery.filter((_, j) => j !== i); localStorage.setItem(KEY, JSON.stringify(gallery)); this.setState({ gallery }); } })),
-      startNew: () => { this.profile = defaultProfile(); this.height = 1; this.history = []; this.resetMaterial(); this.refresh(); this.setState({ screen: 'wheel', glaze: null, fired: false, firePct: 0, spinning: true }); },
+      gallery: s.gallery.map((w, i) => ({ ...w, canEdit: Pottery.canEdit(w), edit: () => this.loadWork(w), thumbStyle: { width: '100%', aspectRatio: '1', backgroundColor: '#E2D2B9', backgroundImage: `url("${w.img}")`, backgroundSize: 'cover', backgroundPosition: 'center' }, remove: () => { const gallery = s.gallery.filter((_, j) => j !== i); localStorage.setItem(KEY, JSON.stringify(gallery)); this.setState({ gallery }); } })),
+      startNew: () => { this.profile = defaultProfile(); this.height = 1; this.history = []; this.notches = []; this.corners = 'rund'; this.editId = null; this.preferredGlaze = null; this.resetMaterial(); this.refresh(); this.setState({ screen: 'wheel', glaze: null, fired: false, firePct: 0, spinning: true }); },
       goGallery: () => this.setState({ screen: 'gallery' }),
       resetView: () => this.resetCamera(),
-      goGlaze: () => this.setState({ screen: 'glaze' }),
+      goGlaze: () => { const g = !s.glaze && GLAZES.find(x => x.name === this.preferredGlaze); if (g) this.setGlaze(g); this.setState({ screen: 'glaze' }); },
       backToWheel: () => { this.resetMaterial(); this.setState({ screen: 'wheel', glaze: null }); },
       startFire: () => this.startFire(),
       randomShape: () => this.randomShape(),
       taller: () => this.changeHeight(0.08), shorter: () => this.changeHeight(-0.08),
-      undo: () => { const h = this.history.pop(); if (!h) return; this.profile = h.p; this.height = h.h; this.refresh(); },
-      resetClay: () => { this.snapshot(); this.profile = defaultProfile(); this.height = 1; this.refresh(); },
+      undo: () => { const h = this.history.pop(); if (!h) return; this.profile = h.p; this.height = h.h; this.notches = h.n; this.corners = h.c; this.lump = h.l; this.editId = h.e; this.refresh(); this.forceUpdate(); },
+      resetClay: () => { this.snapshot(); this.profile = defaultProfile(); this.height = 1; this.notches = []; this.corners = 'rund'; this.editId = null; this.refresh(); },
       toggleSpin: () => this.setState({ spinning: !s.spinning }, () => this.startSound(false)),
       toggleSound: () => this.setState({ sound: !s.sound }, () => { if (this.state.sound) this.startSound(false); else this.stopSound(); }),
       saveToGallery: () => {
@@ -423,8 +435,8 @@ class Component extends DCLogic {
         const c = this.renderer.domElement, size = Math.min(c.width, c.height), out = document.createElement('canvas'); out.width = out.height = 480;
         const ctx = out.getContext('2d'); ctx.fillStyle = '#E8DAC2'; ctx.fillRect(0, 0, 480, 480);
         ctx.drawImage(c, (c.width - size) / 2, (c.height - size) / 2, size, size, 0, 0, 480, 480);
-        const w = { img: out.toDataURL('image/jpeg', 0.8), glaze: s.glaze ? s.glaze.name : 'Unglasiert', date: new Date().toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }) };
-        const gallery = [w, ...s.gallery].slice(0, 30);
+        const w = { id: Pottery.newId(), img: out.toDataURL('image/jpeg', 0.8), glaze: s.glaze ? s.glaze.name : 'Unglasiert', date: new Date().toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }), shape: this.currentShape() };
+        const gallery = Pottery.upsertEntry(s.gallery, w, this.editId); this.editId = w.id;
         try { localStorage.setItem(KEY, JSON.stringify(gallery)); } catch (e) {}
         this.setState({ gallery, screen: 'gallery' });
       },
