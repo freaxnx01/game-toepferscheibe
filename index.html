@@ -40,7 +40,10 @@
       <div style="width:140px; height:140px; border-radius:50%; background:radial-gradient(circle at 40% 35%, #C98A63, #8A5A3A 70%, #5E3A24); box-shadow:0 12px 30px rgba(53,38,27,.25);"></div>
       <h1 style="font-family:Lora, Georgia, serif; font-size:48px; font-weight:600; margin:0; line-height:1.15; text-wrap:pretty; max-width:720px;">Schön, dass Sie da sind.</h1>
       <p style="font-size:26px; line-height:1.5; margin:0; max-width:640px; color:#4D3B2D; text-wrap:pretty;">Die Scheibe dreht sich langsam. Legen Sie zwei Finger links und rechts an den Ton und ziehen Sie sie auseinander oder zusammen – ganz ohne Eile. Am PC ziehen Sie einfach mit der Maus am Rand des Tons.</p>
-      <div style="display:flex; flex-direction:column; gap:12px; width:100%; max-width:480px;"><div style="display:flex; gap:12px; width:100%;"><sc-for list="{{ sizeOpts }}" as="so" hint-placeholder-count="3"><button onClick="{{ so.pick }}" style="flex:1; min-height:64px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:3px solid {{ so.border }}; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ so.label }}</button></sc-for></div><div style="display:flex; gap:12px; width:100%;"><sc-for list="{{ formOpts }}" as="fo" hint-placeholder-count="2"><button onClick="{{ fo.pick }}" style="flex:1; min-height:64px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:3px solid {{ fo.border }}; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ fo.label }}</button></sc-for></div></div>
+      <sc-if value="{{ hasReturnStart }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ backToWork }}" style="min-height:72px; padding:0 28px; font-size:24px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">← Zurück zu meinem Stück</button>
+      </sc-if>
+      <div style="display:flex; flex-direction:column; gap:12px; width:100%; max-width:480px;"><div style="font-size:20px; font-weight:700; color:#6E5A4A; text-align:left;">Grösse</div><div style="display:flex; gap:12px; width:100%;"><sc-for list="{{ sizeOpts }}" as="so" hint-placeholder-count="3"><button onClick="{{ so.pick }}" style="flex:1; min-height:64px; font-size:24px; font-weight:700; border:3px solid {{ so.border }}; color:{{ so.color }}; background:{{ so.bg }}; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ so.label }}</button></sc-for></div><div style="font-size:20px; font-weight:700; color:#6E5A4A; text-align:left;">Form</div><div style="display:flex; gap:12px; width:100%;"><sc-for list="{{ formOpts }}" as="fo" hint-placeholder-count="2"><button onClick="{{ fo.pick }}" style="flex:1; min-height:64px; font-size:24px; font-weight:700; border:3px solid {{ fo.border }}; color:{{ fo.color }}; background:{{ fo.bg }}; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ fo.label }}</button></sc-for></div></div>
       <button onClick="{{ startNew }}" style="min-height:84px; padding:0 48px; font-size:30px; font-weight:700; color:#FBF6EC; background:#B45E3A; border:none; border-radius:18px; cursor:pointer; box-shadow:0 6px 0 #8A4428;" style-hover="background:#9B4D2E;" style-active="transform:translateY(4px); box-shadow:0 2px 0 #8A4428;">Ton auf die Scheibe legen</button>
       <sc-if value="{{ hasGallery }}" hint-placeholder-val="{{ false }}">
         <button onClick="{{ goGallery }}" style="min-height:64px; padding:0 32px; font-size:24px; font-weight:700; color:#35261B; background:transparent; border:2px solid #35261B; border-radius:16px; cursor:pointer;" style-hover="background:#F0E4D0;">Meine Werke ansehen</button>
@@ -62,12 +65,12 @@
       </sc-if>
     </div>
 
-    <aside style="flex:0 1 320px; min-width:280px; display:flex; flex-direction:column; gap:14px; padding:20px; background:#FBF6EC; border-left:2px solid #D9C9B2;">
+    <aside style="flex:0 1 320px; min-width:280px; display:flex; flex-direction:column; gap:14px; padding:20px 20px 96px; background:#FBF6EC; border-left:2px solid #D9C9B2;">
 
       <sc-if value="{{ pickLump }}" hint-placeholder-val="{{ false }}">
         <div data-screen-label="Tonklumpen" style="display:flex; flex-direction:column; gap:14px;">
           <h2 style="font-family:Lora, Georgia, serif; font-size:30px; font-weight:600; margin:0 0 6px;">Neuer Tonklumpen</h2>
-          <div style="display:flex; gap:10px; width:100%;"><sc-for list="{{ sizeOpts }}" as="so" hint-placeholder-count="3"><button onClick="{{ so.pick }}" style="flex:1; min-height:64px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:3px solid {{ so.border }}; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ so.label }}</button></sc-for></div><div style="display:flex; gap:10px; width:100%;"><sc-for list="{{ formOpts }}" as="fo" hint-placeholder-count="2"><button onClick="{{ fo.pick }}" style="flex:1; min-height:64px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:3px solid {{ fo.border }}; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ fo.label }}</button></sc-for></div>
+          <div style="font-size:20px; font-weight:700; color:#6E5A4A; text-align:left;">Grösse</div><div style="display:flex; gap:10px; width:100%;"><sc-for list="{{ sizeOpts }}" as="so" hint-placeholder-count="3"><button onClick="{{ so.pick }}" style="flex:1; min-height:64px; font-size:24px; font-weight:700; border:3px solid {{ so.border }}; color:{{ so.color }}; background:{{ so.bg }}; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ so.label }}</button></sc-for></div><div style="font-size:20px; font-weight:700; color:#6E5A4A; text-align:left;">Form</div><div style="display:flex; gap:10px; width:100%;"><sc-for list="{{ formOpts }}" as="fo" hint-placeholder-count="2"><button onClick="{{ fo.pick }}" style="flex:1; min-height:64px; font-size:24px; font-weight:700; border:3px solid {{ fo.border }}; color:{{ fo.color }}; background:{{ fo.bg }}; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ fo.label }}</button></sc-for></div>
           <div style="flex:1;"></div>
           <button onClick="{{ resetClay }}" style="min-height:84px; font-size:28px; font-weight:700; color:#FBF6EC; background:#B45E3A; border:none; border-radius:18px; cursor:pointer; box-shadow:0 6px 0 #8A4428;" style-hover="background:#9B4D2E;" style-active="transform:translateY(4px); box-shadow:0 2px 0 #8A4428;">Ton auflegen</button>
           <button onClick="{{ cancelLump }}" style="min-height:64px; font-size:22px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">Abbrechen</button>
@@ -84,7 +87,8 @@
           </div></sc-if>
           <sc-if value="{{ showTool }}" hint-placeholder-val="{{ false }}"><div style="display:flex; flex-direction:column; gap:12px;">
             <p style="font-size:22px; color:#6E5A4A; margin:0; line-height:1.4;">Tippen Sie auf den Rand, um eine Kerbe zu machen.</p>
-            <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px;"><sc-for list="{{ cornerOpts }}" as="co" hint-placeholder-count="4"><button onClick="{{ co.pick }}" style="min-height:72px; min-width:0; padding:0 4px; font-size:22px; font-weight:700; color:#35261B; background:#F4ECDF; border:3px solid {{ co.border }}; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ co.label }}</button></sc-for></div>
+            <div style="font-size:20px; font-weight:700; color:#6E5A4A; text-align:left;">Form des Gefässes</div>
+            <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px;"><sc-for list="{{ cornerOpts }}" as="co" hint-placeholder-count="4"><button onClick="{{ co.pick }}" style="min-height:72px; min-width:0; padding:0 4px; font-size:22px; font-weight:700; border:3px solid {{ co.border }}; color:{{ co.color }}; background:{{ co.bg }}; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ co.label }}</button></sc-for></div>
           </div></sc-if>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
             <button onClick="{{ undo }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">↶ Rückgängig</button>
@@ -317,7 +321,7 @@ class Component extends DCLogic {
     const w = el.clientWidth, h = el.clientHeight; if (w < 2 || h < 2) return;
     this.renderer.setSize(w, h, true); this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
   }
-  snapshot() { this.history.push({ p: this.profile.slice(), h: this.height, n: this.notches.slice(), c: this.corners, l: { ...this.lump }, e: this.editId }); if (this.history.length > 60) this.history.shift(); }
+  snapshot() { this.history.push({ p: this.profile.slice(), h: this.height, n: this.notches.slice(), c: this.corners, l: { ...this.lump }, e: this.editId, g: this.preferredGlaze }); if (this.history.length > 60) this.history.shift(); }
 
   applyLump(size, form) { const l = Pottery.lumpShape(size, form); this.profile = l.profile; this.height = l.height; this.notches = []; this.corners = 'rund'; this.lump = { size, form }; }
   currentShape() { return Pottery.makeShape({ profile: this.profile, height: this.height, notches: this.notches, corners: this.corners, lump: this.lump }); }
@@ -325,7 +329,7 @@ class Component extends DCLogic {
     const sh = w.shape;
     this.profile = sh.profile.slice(); this.height = sh.height; this.notches = (sh.notches || []).slice(); this.corners = sh.corners || 'rund'; this.lump = { ...DEFAULT_LUMP, ...(sh.lump || {}) };
     this.editId = w.id; this.preferredGlaze = w.glaze; this.history = []; clearInterval(this.fireTimer); this.resetMaterial(); this.refresh();
-    this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, glaze: null, fired: false, firePct: 0, spinning: true });
+    this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true));
   }
 
   // --- shaping: map screen position to ring index + radius in world units
@@ -475,28 +479,29 @@ class Component extends DCLogic {
       glazeName: s.glaze ? s.glaze.name : '',
       glazes: GLAZES.map(g => ({ name: g.name, color: g.color, border: s.glaze && s.glaze.name === g.name ? '#B45E3A' : '#D9C9B2', pick: () => this.setGlaze(g) })),
       gallery: s.gallery.map((w, i) => ({ ...w, canEdit: Pottery.canEdit(w), edit: () => this.loadWork(w), thumbStyle: { width: '100%', aspectRatio: '1', backgroundColor: '#E2D2B9', backgroundImage: `url("${w.img}")`, backgroundSize: 'cover', backgroundPosition: 'center' }, remove: () => { const gallery = s.gallery.filter((_, j) => j !== i); localStorage.setItem(KEY, JSON.stringify(gallery)); this.setState({ gallery }); } })),
-      startNew: () => { this.applyLump(s.lumpSize, s.lumpForm); this.history = []; this.editId = null; this.preferredGlaze = null; clearInterval(this.fireTimer); this.resetMaterial(); this.refresh(); this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, glaze: null, fired: false, firePct: 0, spinning: true }); },
-      goStart: () => this.setState({ screen: 'start' }),
-      sizeOpts: [['klein', 'Klein'], ['mittel', 'Mittel'], ['gross', 'Gross']].map(([v, label]) => ({ label, border: s.lumpSize === v ? '#B45E3A' : '#B9A58A', pick: () => this.setState({ lumpSize: v }) })),
-      formOpts: [['kugel', 'Kugel'], ['kegel', 'Kegel']].map(([v, label]) => ({ label, border: s.lumpForm === v ? '#B45E3A' : '#B9A58A', pick: () => this.setState({ lumpForm: v }) })),
+      startNew: () => { this.applyLump(s.lumpSize, s.lumpForm); this.history = []; this.editId = null; this.preferredGlaze = null; clearInterval(this.fireTimer); this.resetMaterial(); this.refresh(); this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true)); },
+      goStart: () => this.setState({ screen: 'start', returnScreen: ['wheel', 'glaze', 'firing', 'done'].includes(s.screen) ? s.screen : s.returnScreen }, () => this.setMotor(false)),
+      hasReturnStart: screen === 'start' && !!s.returnScreen,
+      sizeOpts: [['klein', 'Klein'], ['mittel', 'Mittel'], ['gross', 'Gross']].map(([v, label]) => ({ label, border: s.lumpSize === v ? '#B45E3A' : '#B9A58A', color: s.lumpSize === v ? '#FBF6EC' : '#35261B', bg: s.lumpSize === v ? '#B45E3A' : '#F4ECDF', pick: () => this.setState({ lumpSize: v }) })),
+      formOpts: [['kugel', 'Kugel'], ['kegel', 'Kegel']].map(([v, label]) => ({ label, border: s.lumpForm === v ? '#B45E3A' : '#B9A58A', color: s.lumpForm === v ? '#FBF6EC' : '#35261B', bg: s.lumpForm === v ? '#B45E3A' : '#F4ECDF', pick: () => this.setState({ lumpForm: v }) })),
       pickLump: screen === 'wheel' && s.pickingLump, showShaping: screen === 'wheel' && !s.pickingLump,
       showForm: !s.tool, showTool: s.tool, panelTitle: s.tool ? 'Werkzeug' : 'Formen',
       toolTabs: [[false, 'Formen'], [true, 'Werkzeug']].map(([v, label]) => ({ label, bg: s.tool === v ? '#B45E3A' : '#F4ECDF', color: s.tool === v ? '#FBF6EC' : '#35261B', pick: () => this.setToolMode(v) })),
-      cornerOpts: [['rund', 'Rund'], ['oval', 'Oval'], ['dreieckig', 'Dreieckig'], ['viereckig', 'Viereckig']].map(([v, label]) => ({ label, border: this.corners === v ? '#B45E3A' : '#B9A58A', pick: () => this.setCorners(v) })),
+      cornerOpts: [['rund', 'Rund'], ['oval', 'Oval'], ['dreieckig', 'Dreieckig'], ['viereckig', 'Viereckig']].map(([v, label]) => ({ label, border: this.corners === v ? '#B45E3A' : '#B9A58A', color: this.corners === v ? '#FBF6EC' : '#35261B', bg: this.corners === v ? '#B45E3A' : '#F4ECDF', pick: () => this.setCorners(v) })),
       openLump: () => this.setState({ ...this.toolOff(), pickingLump: true, lumpSize: this.lump.size, lumpForm: this.lump.form }, () => this.setMotor(this.state.spinning)),
       cancelLump: () => this.setState({ pickingLump: false }),
-      goGallery: () => this.setState({ screen: 'gallery', returnScreen: ['wheel', 'glaze', 'firing', 'done'].includes(s.screen) ? s.screen : s.returnScreen }),
+      goGallery: () => this.setState({ screen: 'gallery', returnScreen: ['wheel', 'glaze', 'firing', 'done'].includes(s.screen) ? s.screen : s.returnScreen }, () => this.setMotor(false)),
       hasReturn: screen === 'gallery' && !!s.returnScreen,
-      backToWork: () => this.setState({ screen: s.returnScreen, returnScreen: null }),
+      backToWork: () => this.setState({ screen: s.returnScreen, returnScreen: null }, () => this.setMotor(this.state.spinning)),
       resetView: () => this.resetCamera(),
       goGlaze: () => { const g = !s.glaze && GLAZES.find(x => x.name === this.preferredGlaze); if (g) this.setGlaze(g); this.setState({ ...this.toolOff(), screen: 'glaze' }, () => this.setMotor(this.state.spinning)); },
       backToWheel: () => { this.resetMaterial(); this.setState({ screen: 'wheel', glaze: null }); },
       startFire: () => this.startFire(),
       randomShape: () => this.randomShape(),
       taller: () => this.changeHeight(0.08), shorter: () => this.changeHeight(-0.08),
-      undo: () => { const h = this.history.pop(); if (!h) return; this.profile = h.p; this.height = h.h; this.notches = h.n; this.corners = h.c; this.lump = h.l; this.editId = h.e; this.refresh(); this.forceUpdate(); },
-      resetClay: () => { this.snapshot(); this.applyLump(s.lumpSize, s.lumpForm); this.editId = null; this.refresh(); this.setState({ pickingLump: false }); },
-      toggleSpin: () => this.setState({ spinning: !s.spinning }, () => this.setMotor(this.state.spinning)),
+      undo: () => { const h = this.history.pop(); if (!h) return; this.profile = h.p; this.height = h.h; this.notches = h.n; this.corners = h.c; this.lump = h.l; this.editId = h.e; this.preferredGlaze = h.g; this.refresh(); this.forceUpdate(); },
+      resetClay: () => { this.snapshot(); this.applyLump(s.lumpSize, s.lumpForm); this.editId = null; this.preferredGlaze = null; this.refresh(); this.setState({ pickingLump: false }); },
+      toggleSpin: () => { if (s.tool) this.spinBeforeTool = !s.spinning; this.setState({ spinning: !s.spinning }, () => this.setMotor(this.state.spinning)); },
       toggleSound: () => this.setState({ sound: !s.sound }, () => { if (this.state.sound) this.startSound(); else this.stopSound(); }),
       saveToGallery: () => {
         this.renderer.render(this.scene, this.camera);

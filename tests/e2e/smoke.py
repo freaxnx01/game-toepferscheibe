@@ -264,7 +264,55 @@ def tools(b, url):
     assert not errs, errs[:2]
 
 
-FLOWS = [tools, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
+def done_then_start(b, url):
+    page = new_page(b, url)
+    make_work(page)
+    click(page, 'Weiter töpfern')
+    wait_text(page, 'An der Scheibe')
+    click(page, 'Fertig – Glasieren →')
+    click(page, 'In den Ofen →')
+    wait_text(page, 'In die Galerie stellen')
+    click(page, 'Neues Stück beginnen')
+    wait_text(page, 'Ton auf die Scheibe legen')
+    assert page.get_by_role('button', name=BACK).count() == 1, 'back button missing on start'
+    click(page, 'Meine Werke ansehen')
+    wait_text(page, 'Meine Werke')
+    assert page.get_by_role('button', name=BACK).count() == 1, 'back button missing in gallery'
+    click(page, BACK)
+    wait_text(page, 'In die Galerie stellen')
+
+
+def glaze_not_preselected(b, url):
+    page = new_page(b, url)
+    make_work(page, 'Kobalt')
+    click(page, 'Weiter töpfern')
+    wait_text(page, 'An der Scheibe')
+    click(page, 'Neuer Tonklumpen')
+    click(page, 'Ton auflegen')
+    click(page, 'Fertig – Glasieren →')
+    sel = lambda: page.evaluate("() => [...document.querySelectorAll('button')].filter(b => b.textContent.includes('Kobalt') && getComputedStyle(b).borderTopColor === 'rgb(180, 94, 58)').length")
+    assert sel() == 0, 'glaze preselected after Ton auflegen'
+    click(page, '← Zurück zur Scheibe')
+    click(page, '↶ Rückgängig')
+    click(page, 'Fertig – Glasieren →')
+    assert sel() == 1, 'undo did not restore preferred glaze'
+
+
+def spin_and_padding(b, url):
+    page = new_page(b, url)
+    click(page, 'Ton auf die Scheibe legen')
+    click(page, 'Werkzeug')
+    click(page, '▶ Scheibe drehen')
+    click(page, 'Formen')
+    wait_text(page, '⏸ Scheibe anhalten')
+    click(page, 'Neuer Tonklumpen')
+    bg = page.get_by_role('button', name='Mittel', exact=True).first.evaluate('e => getComputedStyle(e).backgroundColor')
+    assert bg == 'rgb(180, 94, 58)', f'selected lump not filled: {bg}'
+    pad = page.locator('aside').first.evaluate('e => getComputedStyle(e).paddingBottom')
+    assert pad == '96px', pad
+
+
+FLOWS = [done_then_start, glaze_not_preselected, spin_and_padding, tools, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
 
 
 def main():

@@ -16,6 +16,13 @@ Play it: <https://github.freaxnx01.ch/game-toepferscheibe/>
   tap the rim for a notch (up to 8); the corner buttons make the pot Rund, Oval,
   Dreieckig or Viereckig. „Rückgängig“ undoes both. „Formen“ switches back.
 - **Neuer Tonklumpen** — choose size (Klein/Mittel/Gross) and form (Kugel/Kegel) of the starting lump
+- **Tonklumpen wählen** — schon auf dem Startbildschirm (Grösse Klein/Mittel/Gross, Form Kugel/Kegel) und
+  später an der Scheibe über „Neuer Tonklumpen“ (dann „Ton auflegen“)
+- **Weiter töpfern** — in der Galerie öffnet es ein Stück zum Weiterarbeiten; beim erneuten Speichern
+  ersetzt es das Original (kein Duplikat)
+- **← Zurück zu meinem Stück** — in der Galerie und auf dem Startbildschirm, solange ein Stück in Arbeit ist
+- **Klang** („Klang aus“/„Klang an“, standardmässig aus) — leises Motorbrummen, solange sich die Scheibe dreht,
+  und ein Reibegeräusch beim Formen, das der Fingergeschwindigkeit folgt
 
 ## Stack
 
