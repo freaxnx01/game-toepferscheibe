@@ -195,7 +195,7 @@ const GLAZES = [
 ];
 const { RINGS, MINR, MAXR, defaultProfile } = Pottery;
 const DEFAULT_LUMP = { size: 'mittel', form: 'kegel' };
-const CLAY = '#A86B48';
+const CLAY = '#9C7B5E';
 const KEY = 'toepfern.galerie';
 const loadGallery = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } };
 
@@ -241,7 +241,7 @@ class Component extends DCLogic {
     rim.rotation.x = Math.PI / 2; rim.position.y = 0; s.add(rim);
     const floor = new THREE.Mesh(new THREE.CircleGeometry(6, 48), new THREE.ShadowMaterial({ opacity: 0.25 }));
     floor.rotation.x = -Math.PI / 2; floor.position.y = -0.18; floor.receiveShadow = true; s.add(floor);
-    this.mat = new THREE.MeshStandardMaterial({ color: CLAY, map: this.clayTexture(), roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
+    this.mat = new THREE.MeshStandardMaterial({ color: CLAY, roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
     this.pot = new THREE.Mesh(this.buildGeo(), this.mat); this.pot.castShadow = true; this.pot.receiveShadow = true; s.add(this.pot);
     this.group = new THREE.Group(); this.group.add(wheel, rim, this.pot); s.add(this.group);
     this.bindPointer(el);
@@ -261,13 +261,6 @@ class Component extends DCLogic {
     for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; x.beginPath(); x.moveTo(256 + Math.cos(a) * 60, 256 + Math.sin(a) * 60); x.lineTo(256 + Math.cos(a) * 244, 256 + Math.sin(a) * 244); x.stroke(); }
     x.fillStyle = '#e8c9a0'; x.beginPath(); x.arc(256 + 200, 256, 16, 0, Math.PI * 2); x.fill();
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
-  }
-  clayTexture() {
-    const THREE = window.THREE, c = document.createElement('canvas'); c.width = 512; c.height = 256; const x = c.getContext('2d');
-    x.fillStyle = '#ffffff'; x.fillRect(0, 0, 512, 256);
-    for (let i = 0; i < 2600; i++) { x.fillStyle = `rgba(${Math.random() < 0.5 ? '60,30,15' : '255,235,210'},${0.08 + Math.random() * 0.22})`; const r = 1 + Math.random() * 3; x.beginPath(); x.arc(Math.random() * 512, Math.random() * 256, r, 0, Math.PI * 2); x.fill(); }
-    for (let i = 0; i < 18; i++) { x.fillStyle = 'rgba(70,35,15,.10)'; x.fillRect(Math.random() * 512, 0, 2 + Math.random() * 6, 256); }
-    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 1); t.colorSpace = THREE.SRGBColorSpace; return t;
   }
   updateCamera() {
     const c = this.cam, t = { x: 0, y: 0.9 * this.height, z: 0 };
