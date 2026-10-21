@@ -199,7 +199,72 @@ def lump_choice(b, url):
     wait_text(page, 'Ton auf die Scheibe legen')
 
 
-FLOWS = [lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
+def rim_point(page, a=0.0):
+    """Canvas point on the front rim of the default pot (camera theta 0, phi 1.25, dist 5.4, fov 32), rotated by a around the axis."""
+    import math
+    sh = page.evaluate("() => { const l = Pottery.lumpShape('mittel', 'kegel'); return { h: l.height, r: l.profile[l.profile.length - 1] }; }")
+    box = page.locator('canvas').first.bounding_box()
+    h, r = sh['h'], sh['r'] * 0.97
+    P = (r * math.sin(a), 2 * h - 0.1, r * math.cos(a)); T = (0, 0.9 * h, 0); d, phi = 5.4, 1.25
+    C = (0, T[1] + d * math.cos(phi), d * math.sin(phi))
+    f = [T[i] - C[i] for i in range(3)]; n = math.sqrt(sum(x * x for x in f)); f = [x / n for x in f]
+    rt = [f[2] * 0 - f[1] * 0, 0, 0]; rt = [-f[2], 0, f[0]]; n = math.hypot(rt[0], rt[2]); rt = [x / n for x in rt]  # right = f x up
+    up = [rt[1] * f[2] - rt[2] * f[1], rt[2] * f[0] - rt[0] * f[2], rt[0] * f[1] - rt[1] * f[0]]
+    v = [P[i] - C[i] for i in range(3)]; dep = sum(v[i] * f[i] for i in range(3))
+    t = math.tan(math.radians(32) / 2)
+    nx = sum(v[i] * rt[i] for i in range(3)) / dep / t / (box['width'] / box['height'])
+    ny = sum(v[i] * up[i] for i in range(3)) / dep / t
+    return box['x'] + (nx + 1) / 2 * box['width'], box['y'] + (1 - ny) / 2 * box['height']
+
+
+def drag_pot(page):
+    box = page.locator('canvas').first.bounding_box()
+    cx, cy = box['x'] + box['width'] / 2, box['y'] + box['height'] * 0.55
+    page.mouse.move(cx, cy); page.mouse.down()
+    for i in range(10): page.mouse.move(cx + 40 + i * 6, cy - i * 6)
+    page.mouse.up()
+
+
+def tools(b, url):
+    page = new_page(b, url)
+    errs = []
+    page.on('pageerror', lambda e: errs.append(str(e)))
+    click(page, 'Ton auf die Scheibe legen')
+    wait_text(page, 'An der Scheibe')
+    base = page.evaluate("() => Pottery.lumpShape('mittel', 'kegel').profile")
+    click(page, 'Neuer Tonklumpen'); drag_pot(page); click(page, 'Abbrechen')  # no shaping while the lump picker is open
+    assert page.get_by_role('button', name='⏸ Scheibe anhalten').count() == 1
+    click(page, 'Werkzeug')
+    wait_text(page, '▶ Scheibe drehen')
+    for c in ['Rund', 'Oval', 'Dreieckig', 'Viereckig']: assert page.get_by_role('button', name=c, exact=True).count() == 1, c
+    assert page.get_by_role('button', name='▲ Höher ziehen').count() == 0 and page.get_by_role('button', name='↶ Rückgängig').count() == 1
+    assert page.get_by_role('button', name='▶ Scheibe drehen').count() == 1 and page.get_by_role('button', name='🔇 Klang aus').count() == 1, 'spin/sound row must stay'
+    wait_text(page, 'Tippen Sie auf den Rand, um eine Kerbe zu machen.')
+    click(page, 'Viereckig')
+    x, y = rim_point(page, 0.0); page.mouse.click(x, y)
+    x, y = rim_point(page, 0.9); page.mouse.click(x, y)
+    click(page, 'Formen')
+    wait_text(page, '⏸ Scheibe anhalten')
+    glaze_fire_save(page)
+    s = gallery(page)[0]['shape']
+    assert s['corners'] == 'viereckig', s['corners']
+    assert len(s['notches']) == 2, f"notches {s['notches']}"
+    assert all(abs(a - b) < 1e-9 for a, b in zip(s['profile'], base)), 'profile changed'
+    click(page, 'Weiter töpfern')
+    wait_text(page, 'An der Scheibe')
+    click(page, '↶ Rückgängig')  # empty history: harmless
+    click(page, 'Werkzeug'); click(page, 'Rund'); click(page, 'Dreieckig'); drag_pot(page)  # drag in tool mode must not shape
+    click(page, '↶ Rückgängig')
+    click(page, 'Formen')
+    glaze_fire_save(page)
+    s = gallery(page)[0]['shape']
+    assert s['corners'] == 'rund', f"undo did not restore rund: {s['corners']}"
+    assert len(s['notches']) == 2 and len(gallery(page)) == 1
+    assert all(abs(a - b) < 1e-9 for a, b in zip(s['profile'], base)), 'drag in tool mode shaped the pot'
+    assert not errs, errs[:2]
+
+
+FLOWS = [tools, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
 
 
 def main():

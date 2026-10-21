@@ -22,7 +22,7 @@
   const TAU = 2 * Math.PI;
   const CORNERS = ['rund', 'oval', 'dreieckig', 'viereckig'], NOTCH_DEPTH = 0.18, NOTCH_HALF_WIDTH = 0.22, NOTCH_MIN_GAP = 0.25, MAX_NOTCHES = 8;
   const poly = (n, a) => Math.cos(Math.PI / n) / Math.cos((((a % (TAU / n)) + TAU / n) % (TAU / n)) - Math.PI / n);
-  const polyMean = {}; for (const [m, n] of [['dreieckig', 3], ['viereckig', 4]]) { let s = 0; for (let i = 0; i < 720; i++) s += 0.4 + 0.6 * poly(n, TAU * i / 720); polyMean[m] = s / 720; }
+  const polyMean = Object.create(null); for (const [m, n] of [['dreieckig', 3], ['viereckig', 4]]) { let s = 0; for (let i = 0; i < 720; i++) s += 0.4 + 0.6 * poly(n, TAU * i / 720); polyMean[m] = s / 720; }
   const cornerFactor = (mode, a) => mode === 'oval' ? 1 + 0.18 * Math.cos(2 * a) : polyMean[mode] ? (0.4 + 0.6 * poly(mode === 'dreieckig' ? 3 : 4, a)) / polyMean[mode] : 1;
   const rimDrop = (notches, a) => { let m = 0; for (const n of notches) { let d = Math.abs(a - n) % TAU; if (d > Math.PI) d = TAU - d; if (d < NOTCH_HALF_WIDTH) m = Math.max(m, NOTCH_DEPTH * (1 + Math.cos(Math.PI * d / NOTCH_HALF_WIDTH)) / 2); } return m; };
   const addNotch = (notches, a) => {

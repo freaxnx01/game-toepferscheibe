@@ -76,16 +76,21 @@
 
       <sc-if value="{{ showShaping }}" hint-placeholder-val="{{ true }}">
         <div data-screen-label="Scheibe" style="display:flex; flex-direction:column; gap:14px;">
-          <h2 style="font-family:Lora, Georgia, serif; font-size:30px; font-weight:600; margin:0 0 6px;">Formen</h2>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <h2 style="font-family:Lora, Georgia, serif; font-size:30px; font-weight:600; margin:0 0 6px;">{{ panelTitle }}</h2>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;"><sc-for list="{{ toolTabs }}" as="tt" hint-placeholder-count="2"><button onClick="{{ tt.pick }}" style="min-height:64px; font-size:24px; font-weight:700; color:{{ tt.color }}; background:{{ tt.bg }}; border:3px solid #B45E3A; border-radius:14px; cursor:pointer;">{{ tt.label }}</button></sc-for></div>
+          <sc-if value="{{ showForm }}" hint-placeholder-val="{{ true }}"><div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
             <button onClick="{{ taller }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">▲ Höher ziehen</button>
             <button onClick="{{ shorter }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">▼ Niedriger</button>
-          </div>
+          </div></sc-if>
+          <sc-if value="{{ showTool }}" hint-placeholder-val="{{ false }}"><div style="display:flex; flex-direction:column; gap:12px;">
+            <p style="font-size:22px; color:#6E5A4A; margin:0; line-height:1.4;">Tippen Sie auf den Rand, um eine Kerbe zu machen.</p>
+            <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px;"><sc-for list="{{ cornerOpts }}" as="co" hint-placeholder-count="4"><button onClick="{{ co.pick }}" style="min-height:72px; min-width:0; padding:0 4px; font-size:22px; font-weight:700; color:#35261B; background:#F4ECDF; border:3px solid {{ co.border }}; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ co.label }}</button></sc-for></div>
+          </div></sc-if>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
             <button onClick="{{ undo }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">↶ Rückgängig</button>
             <button onClick="{{ openLump }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">Neuer Tonklumpen</button>
           </div>
-          <button onClick="{{ randomShape }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">🎲 Zufällige Form</button>
+          <sc-if value="{{ showForm }}" hint-placeholder-val="{{ true }}"><button onClick="{{ randomShape }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">🎲 Zufällige Form</button></sc-if>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
             <button onClick="{{ toggleSpin }}" style="min-height:64px; font-size:22px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ spinLabel }}</button>
             <button onClick="{{ toggleSound }}" style="min-height:64px; font-size:22px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ soundLabel }}</button>
@@ -192,10 +197,10 @@ const loadGallery = () => { try { return JSON.parse(localStorage.getItem(KEY) ||
 
 class Component extends DCLogic {
   state = {
-    screen: 'start', returnScreen: null, lumpSize: DEFAULT_LUMP.size, lumpForm: DEFAULT_LUMP.form, pickingLump: false, spinning: true, sound: false, glaze: null, fired: false, firePct: 0,
+    screen: 'start', returnScreen: null, lumpSize: DEFAULT_LUMP.size, lumpForm: DEFAULT_LUMP.form, pickingLump: false, tool: false, spinning: true, sound: false, glaze: null, fired: false, firePct: 0,
     gallery: loadGallery(), hint: 'Am Ton ziehen formt ihn. Neben dem Ton ziehen (oder rechte Maustaste) dreht die Ansicht; zwei Finger neben dem Ton zoomen.',
   };
-  profile = defaultProfile(); height = 1.0; history = []; notches = []; corners = 'rund'; lump = { ...DEFAULT_LUMP }; editId = null; preferredGlaze = null;
+  profile = defaultProfile(); height = 1.0; history = []; notches = []; corners = 'rund'; lump = { ...DEFAULT_LUMP }; editId = null; preferredGlaze = null; spinBeforeTool = true;
   mountRef = React.createRef();
   pointers = new Map();
 
@@ -262,7 +267,10 @@ class Component extends DCLogic {
   }
   updateCamera() {
     const c = this.cam, t = { x: 0, y: 0.9 * this.height, z: 0 };
-    this.camera.position.set(t.x + c.dist * Math.sin(c.phi) * Math.sin(c.theta), t.y + c.dist * Math.cos(c.phi), t.z + c.dist * Math.sin(c.phi) * Math.cos(c.theta));
+    // a wide pot (and the corner shapes bulge up to x1.29) must fit the width of the view: pull back if needed, never closer than the user's zoom
+    let k = 1; if (this.corners && this.corners !== 'rund') for (let i = 0; i < 48; i++) k = Math.max(k, Pottery.cornerFactor(this.corners, Math.PI * i / 24));
+    const rw = Math.max(...this.profile) * k, tanH = Math.tan(16 * Math.PI / 180) * (this.camera.aspect || 1), dist = Math.max(c.dist, rw * 1.1 / tanH + rw);
+    this.camera.position.set(t.x + dist * Math.sin(c.phi) * Math.sin(c.theta), t.y + dist * Math.cos(c.phi), t.z + dist * Math.sin(c.phi) * Math.cos(c.theta));
     this.camera.lookAt(t.x, t.y, t.z);
   }
   orbit(dTheta, dPhi, dDist) {
@@ -279,6 +287,21 @@ class Component extends DCLogic {
     if (idx < 0 || idx >= RINGS) return false;
     return Math.abs(p.x) < this.profile[idx] + 0.3;
   }
+  notchAt(e) {
+    const THREE = window.THREE, rect = this.renderer.domElement.getBoundingClientRect();
+    const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), this.camera);
+    const hit = ray.intersectObject(this.pot)[0]; if (!hit) return;
+    const l = this.pot.worldToLocal(hit.point.clone()); if (l.y <= 2 * this.height - 0.5) return;
+    const n = Pottery.addNotch(this.notches, Pottery.angleOf(l.x, l.z)); if (n.length === this.notches.length) return;
+    this.snapshot(); this.notches = n; this.refresh();
+  }
+  setToolMode(on) {
+    if (on === this.state.tool) return;
+    if (on) { this.spinBeforeTool = this.state.spinning; this.setState({ tool: true, spinning: false }, () => this.setMotor(false)); }
+    else this.setState(this.toolOff(), () => this.setMotor(this.state.spinning));
+  }
+  toolOff() { return this.state.tool ? { tool: false, spinning: this.spinBeforeTool } : { tool: false }; }
+  setCorners(mode) { this.snapshot(); this.corners = mode; this.refresh(); this.forceUpdate(); }
   buildGeo() {
     const THREE = window.THREE, m = Pottery.buildMesh(this.currentShape()), g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(m.positions, 3)); g.setAttribute('uv', new THREE.BufferAttribute(m.uvs, 2)); g.setIndex(m.indices);
@@ -302,7 +325,7 @@ class Component extends DCLogic {
     const sh = w.shape;
     this.profile = sh.profile.slice(); this.height = sh.height; this.notches = (sh.notches || []).slice(); this.corners = sh.corners || 'rund'; this.lump = { ...DEFAULT_LUMP, ...(sh.lump || {}) };
     this.editId = w.id; this.preferredGlaze = w.glaze; this.history = []; clearInterval(this.fireTimer); this.resetMaterial(); this.refresh();
-    this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, glaze: null, fired: false, firePct: 0, spinning: true });
+    this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, glaze: null, fired: false, firePct: 0, spinning: true });
   }
 
   // --- shaping: map screen position to ring index + radius in world units
@@ -329,7 +352,8 @@ class Component extends DCLogic {
     el.addEventListener('pointerdown', e => {
       if (this.state.screen === 'gallery' || this.state.screen === 'start') return;
       el.setPointerCapture(e.pointerId);
-      if (!this.pointers.size) this.mode = (this.state.screen === 'wheel' && e.button === 0 && this.hitsPot(e)) ? 'shape' : 'orbit';
+      if (!this.pointers.size) this.mode = (this.state.screen === 'wheel' && !this.state.pickingLump && !this.state.tool && e.button === 0 && this.hitsPot(e)) ? 'shape' : 'orbit';
+      if (!this.pointers.size && this.state.screen === 'wheel' && this.state.tool && !this.state.pickingLump && e.button === 0) this.notchAt(e);
       this.pointers.set(e.pointerId, e);
       if (this.mode === 'shape') { this.snapshot(); this.startSound(); this.lastMove = null; }
     });
@@ -358,7 +382,7 @@ class Component extends DCLogic {
     el.addEventListener('contextmenu', e => e.preventDefault());
     el.addEventListener('wheel', e => {
       if (this.state.screen === 'gallery' || this.state.screen === 'start') return; e.preventDefault();
-      if (this.state.screen === 'wheel' && !e.ctrlKey && !e.shiftKey) this.changeHeight(e.deltaY < 0 ? 0.04 : -0.04); else this.orbit(0, 0, e.deltaY * 0.01);
+      if (this.state.screen === 'wheel' && !this.state.pickingLump && !this.state.tool && !e.ctrlKey && !e.shiftKey) this.changeHeight(e.deltaY < 0 ? 0.04 : -0.04); else this.orbit(0, 0, e.deltaY * 0.01);
     }, { passive: false });
   }
   // random but pleasant pot: tapered base + belly + optional rim flare
@@ -444,25 +468,28 @@ class Component extends DCLogic {
       isFiring: screen === 'firing', isDone: screen === 'done', isGallery: screen === 'gallery',
       canvasDisplay: ['wheel', 'glaze', 'firing', 'done'].includes(screen) ? 'flex' : 'none',
       showGalleryBtn: screen !== 'gallery' && screen !== 'start', galleryCount: s.gallery.length, hasGallery: s.gallery.length > 0,
-      galleryEmpty: s.gallery.length === 0, mountRef: this.mountRef, hint: s.hint,
+      galleryEmpty: s.gallery.length === 0, mountRef: this.mountRef, hint: s.tool ? 'Werkzeug: Tippen Sie auf den Rand für eine Kerbe. Neben dem Ton ziehen dreht die Ansicht.' : s.hint,
       spinLabel: s.spinning ? '⏸ Scheibe anhalten' : '▶ Scheibe drehen', soundLabel: s.sound ? '🔊 Klang an' : '🔇 Klang aus',
       firePct: s.firePct + '%', fireTemp: fireTemp + ' °C',
       fireText: s.firePct < 60 ? 'Der Ofen heizt langsam auf. Die Glasur schmilzt und wird glänzend.' : 'Der Ofen kühlt ab. Gleich können Sie Ihr Stück herausnehmen.',
       glazeName: s.glaze ? s.glaze.name : '',
       glazes: GLAZES.map(g => ({ name: g.name, color: g.color, border: s.glaze && s.glaze.name === g.name ? '#B45E3A' : '#D9C9B2', pick: () => this.setGlaze(g) })),
       gallery: s.gallery.map((w, i) => ({ ...w, canEdit: Pottery.canEdit(w), edit: () => this.loadWork(w), thumbStyle: { width: '100%', aspectRatio: '1', backgroundColor: '#E2D2B9', backgroundImage: `url("${w.img}")`, backgroundSize: 'cover', backgroundPosition: 'center' }, remove: () => { const gallery = s.gallery.filter((_, j) => j !== i); localStorage.setItem(KEY, JSON.stringify(gallery)); this.setState({ gallery }); } })),
-      startNew: () => { this.applyLump(s.lumpSize, s.lumpForm); this.history = []; this.editId = null; this.preferredGlaze = null; clearInterval(this.fireTimer); this.resetMaterial(); this.refresh(); this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, glaze: null, fired: false, firePct: 0, spinning: true }); },
+      startNew: () => { this.applyLump(s.lumpSize, s.lumpForm); this.history = []; this.editId = null; this.preferredGlaze = null; clearInterval(this.fireTimer); this.resetMaterial(); this.refresh(); this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, glaze: null, fired: false, firePct: 0, spinning: true }); },
       goStart: () => this.setState({ screen: 'start' }),
       sizeOpts: [['klein', 'Klein'], ['mittel', 'Mittel'], ['gross', 'Gross']].map(([v, label]) => ({ label, border: s.lumpSize === v ? '#B45E3A' : '#B9A58A', pick: () => this.setState({ lumpSize: v }) })),
       formOpts: [['kugel', 'Kugel'], ['kegel', 'Kegel']].map(([v, label]) => ({ label, border: s.lumpForm === v ? '#B45E3A' : '#B9A58A', pick: () => this.setState({ lumpForm: v }) })),
       pickLump: screen === 'wheel' && s.pickingLump, showShaping: screen === 'wheel' && !s.pickingLump,
-      openLump: () => this.setState({ pickingLump: true, lumpSize: this.lump.size, lumpForm: this.lump.form }),
+      showForm: !s.tool, showTool: s.tool, panelTitle: s.tool ? 'Werkzeug' : 'Formen',
+      toolTabs: [[false, 'Formen'], [true, 'Werkzeug']].map(([v, label]) => ({ label, bg: s.tool === v ? '#B45E3A' : '#F4ECDF', color: s.tool === v ? '#FBF6EC' : '#35261B', pick: () => this.setToolMode(v) })),
+      cornerOpts: [['rund', 'Rund'], ['oval', 'Oval'], ['dreieckig', 'Dreieckig'], ['viereckig', 'Viereckig']].map(([v, label]) => ({ label, border: this.corners === v ? '#B45E3A' : '#B9A58A', pick: () => this.setCorners(v) })),
+      openLump: () => this.setState({ ...this.toolOff(), pickingLump: true, lumpSize: this.lump.size, lumpForm: this.lump.form }, () => this.setMotor(this.state.spinning)),
       cancelLump: () => this.setState({ pickingLump: false }),
       goGallery: () => this.setState({ screen: 'gallery', returnScreen: ['wheel', 'glaze', 'firing', 'done'].includes(s.screen) ? s.screen : s.returnScreen }),
       hasReturn: screen === 'gallery' && !!s.returnScreen,
       backToWork: () => this.setState({ screen: s.returnScreen, returnScreen: null }),
       resetView: () => this.resetCamera(),
-      goGlaze: () => { const g = !s.glaze && GLAZES.find(x => x.name === this.preferredGlaze); if (g) this.setGlaze(g); this.setState({ screen: 'glaze' }); },
+      goGlaze: () => { const g = !s.glaze && GLAZES.find(x => x.name === this.preferredGlaze); if (g) this.setGlaze(g); this.setState({ ...this.toolOff(), screen: 'glaze' }, () => this.setMotor(this.state.spinning)); },
       backToWheel: () => { this.resetMaterial(); this.setState({ screen: 'wheel', glaze: null }); },
       startFire: () => this.startFire(),
       randomShape: () => this.randomShape(),

@@ -82,6 +82,9 @@ test('cornerFactor', () => {
   assert.equal(peaks('viereckig'), 4);
   assert.equal(peaks('dreieckig'), 3);
 });
+test('cornerFactor treats unknown modes like rund', () => {
+  for (const m of ['constructor', 'toString', '__proto__', 'bogus', undefined, null]) assert.equal(P.cornerFactor(m, 1.2), 1, String(m));
+});
 test('rimDrop', () => {
   assert.equal(P.rimDrop([], 1), 0);
   assert.ok(Math.abs(P.rimDrop([1], 1) - P.NOTCH_DEPTH) < 1e-9);

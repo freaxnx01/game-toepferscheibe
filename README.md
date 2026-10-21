@@ -12,6 +12,10 @@ Play it: <https://github.freaxnx01.ch/game-toepferscheibe/>
 - **Drag on the clay** (one or two fingers, or the mouse) — shape it
 - **Drag beside the clay** — rotate the view; pinch beside it to zoom
 - **Mouse wheel** — raise/lower the clay; with Ctrl/Shift, zoom
+- **Werkzeug** (toggle at the top of the side panel, next to „Formen“) — stops the wheel;
+  tap the rim for a notch (up to 8); the corner buttons make the pot Rund, Oval,
+  Dreieckig or Viereckig. „Rückgängig“ undoes both. „Formen“ switches back.
+- **Neuer Tonklumpen** — choose size (Klein/Mittel/Gross) and form (Kugel/Kegel) of the starting lump
 
 ## Stack
 
