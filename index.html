@@ -5,6 +5,7 @@
 <meta charset="utf-8">
 <title>Töpferwerkstatt</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./pottery.js"></script>
 <script src="./support.js"></script>
 </head>
 <body>
@@ -166,8 +167,8 @@ const GLAZES = [
   { name: 'Schiefer', color: '#5B6670', rough: 0.4 },
   { name: 'Rost', color: '#9A4E2A', rough: 0.35 },
 ];
-const RINGS = 28, CLAY = '#A86B48', MINR = 0.15, MAXR = 1.6;
-const defaultProfile = () => Array.from({ length: RINGS }, (_, i) => 0.95 - 0.35 * (i / (RINGS - 1)));
+const { RINGS, MINR, MAXR, defaultProfile } = Pottery;
+const CLAY = '#A86B48';
 const KEY = 'toepfern.galerie';
 const loadGallery = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } };
 
