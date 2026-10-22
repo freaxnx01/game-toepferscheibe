@@ -341,6 +341,11 @@ class Component extends DCLogic {
     return { x: hit.dot(right), y: hit.y };
   }
   applyAt(y, radius) { this.shapeTarget = { y, r: radius }; }
+  // one finger: its distance from the axis; two fingers: half their spread, at their mean height
+  aimAt(ps) {
+    if (ps.length >= 2) { const a = this.toLocal(ps[0]), b = this.toLocal(ps[1]); if (a && b) this.applyAt((a.y + b.y) / 2, Math.abs(a.x - b.x) / 2); }
+    else { const p = this.toLocal(ps[0]); if (p) this.applyAt(p.y, Math.abs(p.x)); }
+  }
   flowTick(dtMs) {
     const t = this.shapeTarget;
     if (!t || this.mode !== 'shape' || !this.pointers.size || this.state.screen !== 'wheel' || this.state.pickingLump || this.state.tool) return;
@@ -355,7 +360,7 @@ class Component extends DCLogic {
       if (!this.pointers.size) this.mode = (this.state.screen === 'wheel' && !this.state.pickingLump && !this.state.tool && e.button === 0 && this.hitsPot(e)) ? 'shape' : 'orbit';
       if (!this.pointers.size && this.state.screen === 'wheel' && this.state.tool && !this.state.pickingLump && e.button === 0) this.notchAt(e);
       this.pointers.set(e.pointerId, e); this.shapeTarget = null;
-      if (this.mode === 'shape') { this.snapshot(); this.startSound(); this.lastMove = null; const p = this.toLocal(e); if (p) this.applyAt(p.y, Math.abs(p.x)); }
+      if (this.mode === 'shape') { this.snapshot(); this.startSound(); this.lastMove = null; this.aimAt([...this.pointers.values()]); }
     });
     el.addEventListener('pointermove', e => {
       if (!this.pointers.has(e.pointerId)) return;
@@ -370,12 +375,7 @@ class Component extends DCLogic {
       }
       const now = performance.now(), dt = this.lastMove ? now - this.lastMove : 0; this.lastMove = now;
       if (dt > 0) this.setRub(Math.hypot(e.clientX - prev.clientX, e.clientY - prev.clientY) / dt * 1000);
-      if (ps.length >= 2) {
-        const a = this.toLocal(ps[0]), b = this.toLocal(ps[1]); if (!a || !b) return;
-        this.applyAt((a.y + b.y) / 2, Math.abs(a.x - b.x) / 2);
-      } else {
-        const p = this.toLocal(e); if (!p) return; this.applyAt(p.y, Math.abs(p.x));
-      }
+      this.aimAt(ps);
     });
     const up = e => { this.pointers.delete(e.pointerId); if (!this.pointers.size) { this.shapeTarget = null; this.pinchDist = 0; this.lastMove = null; this.setRub(0); } };
     el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
