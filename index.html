@@ -288,9 +288,14 @@ class Component extends DCLogic {
   notchAt(e) {
     const THREE = window.THREE, rect = this.renderer.domElement.getBoundingClientRect();
     const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), this.camera);
-    const hit = ray.intersectObject(this.pot)[0]; if (!hit) return;
-    const l = this.pot.worldToLocal(hit.point.clone()); if (l.y <= 2 * this.height - 0.5) return;
-    const a = Pottery.angleOf(l.x, l.z), why = Pottery.notchBlock(this.notches, a);
+    const hit = ray.intersectObject(this.pot)[0], l = hit && this.pot.worldToLocal(hit.point.clone()), rimY = 2 * this.height;
+    // a tap on an existing notch passes through the dip: use where the ray enters the rim cylinder (also overrides a far-side inner-wall hit)
+    const o = this.pot.worldToLocal(ray.ray.origin.clone()), d = this.pot.worldToLocal(ray.ray.origin.clone().add(ray.ray.direction)).sub(o), rr = this.profile[RINGS - 1] + 0.1;
+    const qa = d.x * d.x + d.z * d.z, qb = o.x * d.x + o.z * d.z, disc = qb * qb - qa * (o.x * o.x + o.z * o.z - rr * rr), t = qa > 1e-9 && disc >= 0 ? (-qb - Math.sqrt(disc)) / qa : -1;
+    const pl = t > 0 ? o.clone().addScaledVector(d, t) : null, planeOk = !!pl && pl.y > rimY - 0.5 && pl.y < rimY + 0.1, ap = planeOk ? Pottery.angleOf(pl.x, pl.z) : 0, hitOk = l && l.y > rimY - 0.5;
+    let ang = null; if (hitOk) { ang = Pottery.angleOf(l.x, l.z); if (planeOk) { let d = Math.abs(ang - ap) % (2 * Math.PI); if (d > Math.PI) d = 2 * Math.PI - d; if (d > 0.5) ang = ap; } } else if (planeOk) ang = ap;
+    if (ang === null) return;
+    const a = ang, why = Pottery.notchBlock(this.notches, a);
     if (why) { this.flashNotchMsg(why === 'full' ? 'Mehr Kerben passen nicht auf den Rand.' : 'Zu nah an einer Kerbe – tippen Sie etwas daneben.'); return; }
     this.snapshot(); this.notches = Pottery.addNotch(this.notches, a); this.refresh();
   }

@@ -357,7 +357,7 @@ def notch_hint(b, url):
     click(page, 'Ton auf die Scheibe legen'); wait_text(page, 'An der Scheibe')
     click(page, 'Werkzeug'); wait_text(page, '▶ Scheibe drehen')
     x, y = rim_point(page, 0.0); page.mouse.click(x, y)
-    x, y = rim_point(page, 0.2); page.mouse.click(x, y)  # 0.2 rad: outside the notch cut-out (so the ray still hits clay) but inside the 0.25 min gap
+    page.mouse.click(x, y)  # exactly the same spot: the ray now passes through the cut-out
     wait_text(page, 'Zu nah an einer Kerbe')
 
 
