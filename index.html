@@ -54,7 +54,7 @@
   <div style="flex:1; display:{{ canvasDisplay }}; flex-wrap:wrap; align-content:stretch;">
     <div style="flex:1 1 560px; min-width:0; min-height:72vh; position:relative; background:linear-gradient(180deg, #EFE3CF 0%, #E2D2B9 100%);">
       <div ref="{{ mountRef }}" style="position:absolute; inset:0; overflow:hidden; touch-action:none; cursor:grab;"></div>
-      <sc-if value="{{ isFiring }}" hint-placeholder-val="{{ false }}">
+      <sc-if value="{{ kilnGlow }}" hint-placeholder-val="{{ false }}">
         <div style="position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse at 50% 70%, rgba(255,140,40,.75), rgba(180,60,10,.35) 55%, rgba(40,10,0,.6)); animation:kiln 2.4s ease-in-out infinite;"></div>
       </sc-if>
       <button onClick="{{ resetView }}" style="position:absolute; top:16px; right:16px; min-height:56px; padding:0 18px; font-size:20px; font-weight:700; color:#35261B; background:rgba(251,246,236,.92); border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">⟲ Ansicht zurücksetzen</button>
@@ -125,11 +125,18 @@
       <sc-if value="{{ isFiring }}" hint-placeholder-val="{{ false }}">
         <div data-screen-label="Brennen" style="display:flex; flex-direction:column; gap:16px;">
           <h2 style="font-family:Lora, Georgia, serif; font-size:30px; font-weight:600; margin:0;">Im Brennofen</h2>
-          <p style="font-size:24px; color:#4D3B2D; margin:0; line-height:1.4; text-wrap:pretty;">{{ fireText }}</p>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <sc-for list="{{ fireSteps }}" as="f" hint-placeholder-count="2">
+              <div style="display:flex; gap:12px; align-items:flex-start; font-size:24px; line-height:1.4; color:{{ f.color }}; font-weight:{{ f.weight }};"><span style="flex:none; width:28px; text-align:center;">{{ f.mark }}</span><span style="text-wrap:pretty;">{{ f.text }}</span></div>
+            </sc-for>
+          </div>
           <div style="height:22px; background:#E6D9C3; border-radius:11px; overflow:hidden; border:2px solid #D9C9B2;">
             <div style="height:100%; width:{{ firePct }}; background:linear-gradient(90deg, #C8893A, #B45E3A); transition:width .4s linear;"></div>
           </div>
           <div style="font-size:26px; font-weight:700;">{{ fireTemp }}</div>
+          <sc-if value="{{ fireDone }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ takeOut }}" style="min-height:84px; font-size:28px; font-weight:700; color:#FBF6EC; background:#B45E3A; border:none; border-radius:18px; cursor:pointer; box-shadow:0 6px 0 #8A4428;" style-hover="background:#9B4D2E;" style-active="transform:translateY(4px); box-shadow:0 2px 0 #8A4428;">Stück herausnehmen →</button>
+          </sc-if>
         </div>
       </sc-if>
 
@@ -457,7 +464,7 @@ class Component extends DCLogic {
       const glow = pct < 60 ? pct / 60 : (100 - pct) / 40;
       if (this.mat) { this.mat.emissive.set(0xff6a1a); this.mat.emissiveIntensity = glow * 0.45; }
       this.setState({ firePct: pct });
-      if (pct >= 100) { clearInterval(this.fireTimer); this.mat.emissiveIntensity = 0; if (this.state.screen === 'firing') this.setState({ screen: 'done', fired: true }); else this.setState({ fired: true, returnScreen: 'done' }); }
+      if (pct >= 100) { clearInterval(this.fireTimer); if (this.mat) this.mat.emissiveIntensity = 0; this.setState({ fired: true }); }
     }, 120);
   }
   setGlaze(g) {
@@ -478,7 +485,9 @@ class Component extends DCLogic {
       galleryEmpty: s.gallery.length === 0, mountRef: this.mountRef, hint: s.tool && s.notchMsg ? s.notchMsg : s.tool ? 'Werkzeug: Tippen Sie auf den Rand für eine Kerbe. Neben dem Ton ziehen dreht die Ansicht.' : s.hint,
       spinLabel: s.spinning ? '⏸ Scheibe anhalten' : '▶ Scheibe drehen', soundLabel: s.sound ? '🔊 Klang an' : '🔇 Klang aus',
       firePct: s.firePct + '%', fireTemp: fireTemp + ' °C',
-      fireText: s.firePct < 60 ? 'Der Ofen heizt langsam auf. Die Glasur schmilzt und wird glänzend.' : 'Der Ofen kühlt ab. Gleich können Sie Ihr Stück herausnehmen.',
+      fireSteps: Pottery.fireSteps(s.firePct).map(f => ({ text: f.text, mark: { done: '✓', active: '●', todo: '○' }[f.state], color: { done: '#6E5A4A', active: '#4D3B2D', todo: '#A8957E' }[f.state], weight: f.state === 'active' ? 700 : 400 })),
+      fireDone: s.firePct >= 100, kilnGlow: screen === 'firing' && s.firePct < 100,
+      takeOut: () => this.setState({ screen: 'done' }),
       glazeName: s.glaze ? s.glaze.name : '',
       glazes: GLAZES.map(g => ({ name: g.name, color: g.color, border: s.glaze && s.glaze.name === g.name ? '#B45E3A' : '#D9C9B2', pick: () => this.setGlaze(g) })),
       gallery: s.gallery.map((w, i) => ({ ...w, canEdit: Pottery.canEdit(w), edit: () => this.loadWork(w), thumbStyle: { width: '100%', aspectRatio: '1', backgroundColor: '#E2D2B9', backgroundImage: `url("${w.img}")`, backgroundSize: 'cover', backgroundPosition: 'center' }, remove: () => { const gallery = s.gallery.filter((_, j) => j !== i); localStorage.setItem(KEY, JSON.stringify(gallery)); this.setState({ gallery }); } })),

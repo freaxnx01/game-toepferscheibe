@@ -156,3 +156,14 @@ test('flowStep', () => {
   const same = P.defaultProfile().map(() => 1.2);
   assert.equal(P.flowStep(same, 10, 1.2, 0.5), 0);
 });
+
+test('fireSteps', () => {
+  const T1 = 'Der Ofen heizt langsam auf. Die Glasur schmilzt und wird glänzend.', T2 = 'Der Ofen kühlt ab. Gleich können Sie Ihr Stück herausnehmen.';
+  const st = (p) => P.fireSteps(p).map(s => s.state);
+  assert.deepEqual(P.fireSteps(0).map(s => s.text), [T1, T2]);
+  assert.deepEqual(st(0), ['active', 'todo']);
+  assert.deepEqual(st(59), ['active', 'todo']);
+  assert.deepEqual(st(60), ['done', 'active']);
+  assert.deepEqual(st(99), ['done', 'active']);
+  assert.deepEqual(st(100), ['done', 'done']);
+});

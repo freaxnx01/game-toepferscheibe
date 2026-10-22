@@ -55,6 +55,7 @@ def glaze_fire_save(page, glaze=None):
     click(page, 'Fertig – Glasieren →')
     if glaze: click(page, glaze)
     click(page, 'In den Ofen →')
+    click(page, 'Stück herausnehmen →')
     wait_text(page, 'In die Galerie stellen')
     click(page, 'In die Galerie stellen')
     wait_text(page, 'Entfernen')
@@ -77,6 +78,7 @@ def edit_replaces(b, url):
     border = page.get_by_role('button', name='Kobalt').first.evaluate('e => getComputedStyle(e).borderTopColor')
     assert border == 'rgb(180, 94, 58)', f'Kobalt not preselected: {border}'
     click(page, 'In den Ofen →')
+    click(page, 'Stück herausnehmen →')
     wait_text(page, 'In die Galerie stellen')
     click(page, 'In die Galerie stellen')
     wait_text(page, 'Entfernen')
@@ -143,8 +145,10 @@ def back_during_firing(b, url):
     page.wait_for_timeout(8000)
     assert page.get_by_role('heading', name='Meine Werke').count() == 1, 'left the gallery on its own'
     page.get_by_role('button', name=BACK).first.click(no_wait_after=True)  # the post-click wait starves on the software-GL canvas
+    wait_text(page, 'Stück herausnehmen →')
+    for t in ('Der Ofen heizt langsam auf.', 'Der Ofen kühlt ab.'): assert page.get_by_text(t, exact=False).count() == 1, f'step missing: {t}'
+    click(page, 'Stück herausnehmen →')
     wait_text(page, 'Fertig gebrannt')
-    assert page.get_by_text('Fertig', exact=True).count() >= 1, 'step label not Fertig'
 
 
 def no_back_after_save(b, url):
@@ -271,6 +275,7 @@ def done_then_start(b, url):
     wait_text(page, 'An der Scheibe')
     click(page, 'Fertig – Glasieren →')
     click(page, 'In den Ofen →')
+    click(page, 'Stück herausnehmen →')
     wait_text(page, 'In die Galerie stellen')
     click(page, 'Neues Stück beginnen')
     wait_text(page, 'Ton auf die Scheibe legen')
