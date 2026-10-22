@@ -178,7 +178,7 @@
   </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;wheelSpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0.3,&quot;max&quot;:2,&quot;step&quot;:0.1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Scheibe&quot;},&quot;clayStrength&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0.5,&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;step&quot;:0.1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Scheibe&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;wheelSpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0.3,&quot;max&quot;:2,&quot;step&quot;:0.1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Scheibe&quot;}}">
 const GLAZES = [
   { name: 'Honig', color: '#C8893A', rough: 0.3 },
   { name: 'Seladon', color: '#9FB8A3', rough: 0.35 },
@@ -248,7 +248,8 @@ class Component extends DCLogic {
     r.domElement.style.display = 'block';
     this.ro = new ResizeObserver(() => this.resize()); this.ro.observe(el);
     this.resize();
-    const tick = () => { this.raf = requestAnimationFrame(tick); if (this.state.spinning && this.state.screen !== 'gallery') this.group.rotation.y += 0.012 * (this.props.wheelSpeed ?? 1); this.renderer.render(this.scene, this.camera); };
+    let last = performance.now();
+    const tick = () => { this.raf = requestAnimationFrame(tick); const now = performance.now(), dt = Math.min(100, now - last); last = now; this.flowTick(dt); if (this.state.spinning && this.state.screen !== 'gallery') this.group.rotation.y += 0.012 * (this.props.wheelSpeed ?? 1); this.renderer.render(this.scene, this.camera); };
     tick();
   }
   wheelTexture() {
@@ -339,10 +340,12 @@ class Component extends DCLogic {
     const right = new THREE.Vector3(Math.cos(this.cam.theta), 0, -Math.sin(this.cam.theta));
     return { x: hit.dot(right), y: hit.y };
   }
-  applyAt(y, radius) {
-    const idx = Math.round((y / (2 * this.height)) * (RINGS - 1)); if (idx < 1 || idx >= RINGS) return;
-    const rr = Math.min(MAXR, Math.max(0.2, radius));
-    for (let k = -3; k <= 3; k++) { const j = idx + k; if (j < 1 || j >= RINGS) continue; const w = Math.exp(-(k * k) / 4); this.profile[j] += (rr - this.profile[j]) * w * (this.props.clayStrength ?? 0.5); }
+  applyAt(y, radius) { this.shapeTarget = { y, r: radius }; }
+  flowTick(dtMs) {
+    const t = this.shapeTarget;
+    if (!t || this.mode !== 'shape' || !this.pointers.size || this.state.screen !== 'wheel' || this.state.pickingLump || this.state.tool) return;
+    const idx = Math.round((t.y / (2 * this.height)) * (RINGS - 1));
+    Pottery.flowStep(this.profile, idx, t.r, Pottery.flowFactor(dtMs));
     this.refresh();
   }
   bindPointer(el) {
@@ -351,8 +354,8 @@ class Component extends DCLogic {
       el.setPointerCapture(e.pointerId);
       if (!this.pointers.size) this.mode = (this.state.screen === 'wheel' && !this.state.pickingLump && !this.state.tool && e.button === 0 && this.hitsPot(e)) ? 'shape' : 'orbit';
       if (!this.pointers.size && this.state.screen === 'wheel' && this.state.tool && !this.state.pickingLump && e.button === 0) this.notchAt(e);
-      this.pointers.set(e.pointerId, e);
-      if (this.mode === 'shape') { this.snapshot(); this.startSound(); this.lastMove = null; }
+      this.pointers.set(e.pointerId, e); this.shapeTarget = null;
+      if (this.mode === 'shape') { this.snapshot(); this.startSound(); this.lastMove = null; const p = this.toLocal(e); if (p) this.applyAt(p.y, Math.abs(p.x)); }
     });
     el.addEventListener('pointermove', e => {
       if (!this.pointers.has(e.pointerId)) return;
@@ -374,7 +377,7 @@ class Component extends DCLogic {
         const p = this.toLocal(e); if (!p) return; this.applyAt(p.y, Math.abs(p.x));
       }
     });
-    const up = e => { this.pointers.delete(e.pointerId); if (!this.pointers.size) { this.pinchDist = 0; this.lastMove = null; this.setRub(0); } };
+    const up = e => { this.pointers.delete(e.pointerId); if (!this.pointers.size) { this.shapeTarget = null; this.pinchDist = 0; this.lastMove = null; this.setRub(0); } };
     el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
     el.addEventListener('contextmenu', e => e.preventDefault());
     el.addEventListener('wheel', e => {

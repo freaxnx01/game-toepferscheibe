@@ -298,6 +298,46 @@ def glaze_not_preselected(b, url):
     assert sel() == 1, 'undo did not restore preferred glaze'
 
 
+VCLOCK = """(() => { let t = 0; window.__budget = 0; performance.now = () => t;
+  const raf = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = cb => raf(() => { if (window.__budget > 0) { window.__budget--; t += 50; } cb(t); }); })()"""
+
+
+def frames(page, n):
+    """Let exactly n frames of 50 ms pass on the virtual clock (time stands still otherwise)."""
+    page.evaluate(f'window.__budget = {n}')
+    page.wait_for_function('window.__budget === 0')
+
+
+def sluggish(b, url):
+    page = new_page(b, url)
+    page.context.add_init_script(VCLOCK); page.reload(wait_until='domcontentloaded')  # virtual clock: every frame is exactly 50 ms, independent of the slow software renderer
+    errs = []
+    page.on('pageerror', lambda e: errs.append(str(e)))
+    click(page, 'Ton auf die Scheibe legen')
+    wait_text(page, 'An der Scheibe')
+    base = page.evaluate("() => Pottery.lumpShape('mittel', 'kegel').profile")
+    box = page.locator('canvas').first.bounding_box()
+    cx, cy = box['x'] + box['width'] / 2, box['y'] + box['height'] * 0.55
+
+    def dmax(): return max(abs(a - c) for a, c in zip(gallery(page)[0]['shape']['profile'], base))
+
+    page.mouse.move(cx, cy); page.mouse.down()  # quick swipe: 3 frames = 150 ms, aimed at the axis
+    page.mouse.move(cx + 2, cy - 4); frames(page, 3)
+    page.mouse.up()
+    glaze_fire_save(page)
+    swipe = dmax()
+    click(page, 'Weiter töpfern'); wait_text(page, 'An der Scheibe')
+    page.mouse.move(cx, cy); page.mouse.down()  # hold still for 70 frames = 3.5 s: clay keeps flowing to the finger
+    frames(page, 70)
+    page.mouse.up()
+    glaze_fire_save(page)
+    hold = dmax()
+    assert hold >= 0.15, f'hold barely moved the clay: {hold:.3f}'
+    assert 0 < swipe < 0.25 * hold, f'swipe {swipe:.3f} vs hold {hold:.3f}'
+    assert not errs, errs[:2]
+
+
 def spin_and_padding(b, url):
     page = new_page(b, url)
     click(page, 'Ton auf die Scheibe legen')
@@ -312,7 +352,7 @@ def spin_and_padding(b, url):
     assert pad == '96px', pad
 
 
-FLOWS = [done_then_start, glaze_not_preselected, spin_and_padding, tools, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
+FLOWS = [sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
 
 
 def main():
