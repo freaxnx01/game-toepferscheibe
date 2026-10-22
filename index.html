@@ -216,7 +216,7 @@ class Component extends DCLogic {
   }
   componentWillUnmount() {
     window.removeEventListener('resize', this.onResize);
-    cancelAnimationFrame(this.raf); clearInterval(this.fireTimer); if (this.ro) this.ro.disconnect();
+    cancelAnimationFrame(this.raf); clearInterval(this.fireTimer); clearTimeout(this.notchTimer); if (this.ro) this.ro.disconnect();
     if (this.renderer) this.renderer.dispose();
     this.stopSound();
   }
@@ -290,15 +290,17 @@ class Component extends DCLogic {
     const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), this.camera);
     const hit = ray.intersectObject(this.pot)[0]; if (!hit) return;
     const l = this.pot.worldToLocal(hit.point.clone()); if (l.y <= 2 * this.height - 0.5) return;
-    const n = Pottery.addNotch(this.notches, Pottery.angleOf(l.x, l.z)); if (n.length === this.notches.length) return;
-    this.snapshot(); this.notches = n; this.refresh();
+    const a = Pottery.angleOf(l.x, l.z), why = Pottery.notchBlock(this.notches, a);
+    if (why) { this.flashNotchMsg(why === 'full' ? 'Mehr Kerben passen nicht auf den Rand.' : 'Zu nah an einer Kerbe – tippen Sie etwas daneben.'); return; }
+    this.snapshot(); this.notches = Pottery.addNotch(this.notches, a); this.refresh();
   }
+  flashNotchMsg(m) { clearTimeout(this.notchTimer); this.setState({ notchMsg: m }); this.notchTimer = setTimeout(() => this.setState({ notchMsg: null }), 3000); }
   setToolMode(on) {
     if (on === this.state.tool) return;
     if (on) { this.spinBeforeTool = this.state.spinning; this.setState({ tool: true, spinning: false }, () => this.setMotor(false)); }
-    else this.setState(this.toolOff(), () => this.setMotor(this.state.spinning));
+    else { clearTimeout(this.notchTimer); this.setState(this.toolOff(), () => this.setMotor(this.state.spinning)); }
   }
-  toolOff() { return this.state.tool ? { tool: false, spinning: this.spinBeforeTool } : { tool: false }; }
+  toolOff() { return this.state.tool ? { tool: false, spinning: this.spinBeforeTool, notchMsg: null } : { tool: false, notchMsg: null }; }
   setCorners(mode) { this.snapshot(); this.corners = mode; this.refresh(); this.forceUpdate(); }
   buildGeo() {
     const THREE = window.THREE, m = Pottery.buildMesh(this.currentShape()), g = new THREE.BufferGeometry();
@@ -378,7 +380,7 @@ class Component extends DCLogic {
       this.aimAt(ps);
     });
     const up = e => { this.pointers.delete(e.pointerId); if (!this.pointers.size) { this.shapeTarget = null; this.pinchDist = 0; this.lastMove = null; this.setRub(0); } else if (this.mode === 'shape') this.aimAt([...this.pointers.values()]); };
-    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
     el.addEventListener('contextmenu', e => e.preventDefault());
     el.addEventListener('wheel', e => {
       if (this.state.screen === 'gallery' || this.state.screen === 'start') return; e.preventDefault();
@@ -468,7 +470,7 @@ class Component extends DCLogic {
       isFiring: screen === 'firing', isDone: screen === 'done', isGallery: screen === 'gallery',
       canvasDisplay: ['wheel', 'glaze', 'firing', 'done'].includes(screen) ? 'flex' : 'none',
       showGalleryBtn: screen !== 'gallery' && screen !== 'start', galleryCount: s.gallery.length, hasGallery: s.gallery.length > 0,
-      galleryEmpty: s.gallery.length === 0, mountRef: this.mountRef, hint: s.tool ? 'Werkzeug: Tippen Sie auf den Rand für eine Kerbe. Neben dem Ton ziehen dreht die Ansicht.' : s.hint,
+      galleryEmpty: s.gallery.length === 0, mountRef: this.mountRef, hint: s.tool && s.notchMsg ? s.notchMsg : s.tool ? 'Werkzeug: Tippen Sie auf den Rand für eine Kerbe. Neben dem Ton ziehen dreht die Ansicht.' : s.hint,
       spinLabel: s.spinning ? '⏸ Scheibe anhalten' : '▶ Scheibe drehen', soundLabel: s.sound ? '🔊 Klang an' : '🔇 Klang aus',
       firePct: s.firePct + '%', fireTemp: fireTemp + ' °C',
       fireText: s.firePct < 60 ? 'Der Ofen heizt langsam auf. Die Glasur schmilzt und wird glänzend.' : 'Der Ofen kühlt ab. Gleich können Sie Ihr Stück herausnehmen.',

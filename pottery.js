@@ -20,17 +20,18 @@
   const MOTOR_GAIN = 0.045;
   const rubGain = (v) => { if (!(v > 20)) return 0; const x = Math.min(1, (v - 20) / 1180); return 0.12 * x * x * (3 - 2 * x); };
   const TAU = 2 * Math.PI;
-  const CORNERS = ['rund', 'oval', 'dreieckig', 'viereckig'], NOTCH_DEPTH = 0.18, NOTCH_HALF_WIDTH = 0.22, NOTCH_MIN_GAP = 0.25, MAX_NOTCHES = 8;
+  const CORNERS = ['rund', 'oval', 'dreieckig', 'viereckig'], NOTCH_DEPTH = 0.18, NOTCH_HALF_WIDTH = 0.22, NOTCH_MIN_GAP = 0.25, MAX_NOTCHES = 16;
   const poly = (n, a) => Math.cos(Math.PI / n) / Math.cos((((a % (TAU / n)) + TAU / n) % (TAU / n)) - Math.PI / n);
   const polyMean = Object.create(null); for (const [m, n] of [['dreieckig', 3], ['viereckig', 4]]) { let s = 0; for (let i = 0; i < 720; i++) s += 0.4 + 0.6 * poly(n, TAU * i / 720); polyMean[m] = s / 720; }
   const cornerFactor = (mode, a) => mode === 'oval' ? 1 + 0.18 * Math.cos(2 * a) : polyMean[mode] ? (0.4 + 0.6 * poly(mode === 'dreieckig' ? 3 : 4, a)) / polyMean[mode] : 1;
   const rimDrop = (notches, a) => { let m = 0; for (const n of notches) { let d = Math.abs(a - n) % TAU; if (d > Math.PI) d = TAU - d; if (d < NOTCH_HALF_WIDTH) m = Math.max(m, NOTCH_DEPTH * (1 + Math.cos(Math.PI * d / NOTCH_HALF_WIDTH)) / 2); } return m; };
-  const addNotch = (notches, a) => {
+  const notchBlock = (notches, a) => {
+    if (notches.length >= MAX_NOTCHES) return 'full';
     const t = ((a % TAU) + TAU) % TAU;
-    if (notches.length >= MAX_NOTCHES) return [...notches];
-    for (const n of notches) { let d = Math.abs(t - n) % TAU; if (d > Math.PI) d = TAU - d; if (d < NOTCH_MIN_GAP) return [...notches]; }
-    return [...notches, t];
+    for (const n of notches) { let d = Math.abs(t - n) % TAU; if (d > Math.PI) d = TAU - d; if (d < NOTCH_MIN_GAP) return 'near'; }
+    return null;
   };
+  const addNotch = (notches, a) => notchBlock(notches, a) ? [...notches] : [...notches, ((a % TAU) + TAU) % TAU];
   const angleOf = (x, z) => ((Math.atan2(x, z) % TAU) + TAU) % TAU;
   const outline = (profile, height) => {
     const pts = [[0, 0]];
@@ -63,7 +64,7 @@
     for (let k = -3; k <= 3; k++) { const j = idx + k; if (j < 1 || j >= RINGS) continue; const d = (r - profile[j]) * Math.exp(-k * k / 4) * f; profile[j] += d; max = Math.max(max, Math.abs(d)); }
     return max;
   };
-  const api = { FLOW_TAU, flowFactor, flowStep, CORNERS, NOTCH_DEPTH, NOTCH_HALF_WIDTH, NOTCH_MIN_GAP, MAX_NOTCHES, cornerFactor, rimDrop, addNotch, angleOf, outline, buildMesh, MOTOR_GAIN, rubGain, RINGS, MINR, MAXR, HMIN, HMAX, MAX_WORKS, defaultProfile, lumpShape, newId, makeShape, canEdit, upsertEntry };
+  const api = { FLOW_TAU, flowFactor, flowStep, CORNERS, NOTCH_DEPTH, NOTCH_HALF_WIDTH, NOTCH_MIN_GAP, MAX_NOTCHES, notchBlock, cornerFactor, rimDrop, addNotch, angleOf, outline, buildMesh, MOTOR_GAIN, rubGain, RINGS, MINR, MAXR, HMIN, HMAX, MAX_WORKS, defaultProfile, lumpShape, newId, makeShape, canEdit, upsertEntry };
   if (typeof window !== 'undefined') window.Pottery = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();

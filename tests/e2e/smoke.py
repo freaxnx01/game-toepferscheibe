@@ -352,7 +352,16 @@ def spin_and_padding(b, url):
     assert pad == '96px', pad
 
 
-FLOWS = [sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
+def notch_hint(b, url):
+    page = new_page(b, url)
+    click(page, 'Ton auf die Scheibe legen'); wait_text(page, 'An der Scheibe')
+    click(page, 'Werkzeug'); wait_text(page, '▶ Scheibe drehen')
+    x, y = rim_point(page, 0.0); page.mouse.click(x, y)
+    x, y = rim_point(page, 0.2); page.mouse.click(x, y)  # 0.2 rad: outside the notch cut-out (so the ray still hits clay) but inside the 0.25 min gap
+    wait_text(page, 'Zu nah an einer Kerbe')
+
+
+FLOWS = [sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
 
 
 def main():
