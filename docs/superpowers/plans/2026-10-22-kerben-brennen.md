@@ -75,3 +75,16 @@
   - Remove `fireText` from `renderVals` if unused.
 - [ ] **Step 5: e2e** — update helpers/flows so that after „In den Ofen →“ they `click(page, 'Stück herausnehmen →')` before waiting for „In die Galerie stellen“ / „Fertig gebrannt“ (`glaze_fire_save`, `edit_replaces`, `done_then_start`, `back_during_firing`). In `back_during_firing` additionally assert that after BACK the firing screen shows „Stück herausnehmen →“ and both step texts are visible. Run red before Step 4 is wired if feasible, then green: the full suite `systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 python3 tests/e2e/smoke.py` (~10+ min; run in background).
 - [ ] **Step 6: Commit** `feat(brennen): alle Brenn-Schritte sichtbar, weiter per Knopf (#10)`.
+
+### Task 3: Gallery photo without the turntable (#11)
+
+**Files:**
+- Modify: `index.html` (`saveToGallery` ~l.502–507; scene setup l.237–246 to keep references to `wheel` and `rim`)
+- Test: `tests/e2e/smoke.py` (new flow `gallery_no_wheel`)
+
+Decision: only new works; existing gallery images stay as they are.
+
+- [ ] **Step 1: Failing e2e** `gallery_no_wheel`: make a work (`make_work`), read `gallery(page)[0]['img']`, draw it into a canvas in the page and sample the pixel colours in a band near the image bottom below the pot (e.g. rows at 85–90 % height, columns 20–80 %). Assert none of them is close to the wheel texture colours; read `wheelTexture()` and the rim material for the exact colours, and assert that the band matches the plain background `#E8DAC2` / scene backdrop within tolerance. Run `FLOW=gallery_no_wheel` under the memory cap → FAIL.
+- [ ] **Step 2: Implement** — keep `this.wheel` / `this.rim` from scene setup. In `saveToGallery`, set `visible = false` on both (and on the shadow-only ground if it shows the wheel shadow) before `this.renderer.render`, then restore `visible = true` right after `drawImage`.
+- [ ] **Step 3:** run the flow green, plus `FLOW=edit_replaces`.
+- [ ] **Step 4: Commit** `feat(galerie): Werke ohne Drehteller abbilden (#11)`.
