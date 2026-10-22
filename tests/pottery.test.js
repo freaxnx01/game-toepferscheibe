@@ -116,3 +116,31 @@ test('buildMesh', () => {
   const mv = P.buildMesh(P.makeShape({ profile, height: 1, corners: 'viereckig', notches: [0, 6.2] }));
   assert.ok(![...mv.positions].some(Number.isNaN));
 });
+
+test('flowFactor', () => {
+  assert.equal(P.FLOW_TAU, 1000);
+  assert.equal(P.flowFactor(0), 0);
+  assert.equal(P.flowFactor(-5), 0);
+  assert.equal(P.flowFactor(NaN), 0);
+  assert.ok(P.flowFactor(16) < 0.02);
+  assert.ok(P.flowFactor(3000) >= 0.95);
+  assert.ok(P.flowFactor(500) < P.flowFactor(1000));
+});
+
+test('flowStep', () => {
+  const p = P.defaultProfile(), o = p.slice();
+  P.flowStep(p, 10, 1.5, 0.5);
+  assert.ok(Math.abs(p[10] - (o[10] + (1.5 - o[10]) * 0.5)) < 1e-12);
+  assert.ok(Math.abs(p[11] - (o[11] + (1.5 - o[11]) * Math.exp(-0.25) * 0.5)) < 1e-12);
+  assert.equal(p[14], o[14]);
+  const q = P.defaultProfile();
+  P.flowStep(q, 1, 1.5, 0.5);
+  assert.equal(q[0], P.defaultProfile()[0]);
+  const c = P.defaultProfile();
+  P.flowStep(c, 10, 99, 1);
+  assert.equal(c[10], P.MAXR);
+  for (const i of [0, P.RINGS]) { const z = P.defaultProfile(); P.flowStep(z, i, 1.5, 1); assert.deepEqual(z, P.defaultProfile()); }
+  const n = P.defaultProfile();
+  P.flowStep(n, 10, 1.5, 0);
+  assert.deepEqual(n, P.defaultProfile());
+});
