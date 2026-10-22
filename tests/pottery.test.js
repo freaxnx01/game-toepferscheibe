@@ -143,4 +143,11 @@ test('flowStep', () => {
   const n = P.defaultProfile();
   P.flowStep(n, 10, 1.5, 0);
   assert.deepEqual(n, P.defaultProfile());
+  // returns the largest absolute change applied
+  const d = P.defaultProfile();
+  assert.ok(Math.abs(P.flowStep(d, 10, 1.5, 0.5) - Math.abs((1.5 - P.defaultProfile()[10]) * 0.5)) < 1e-12);
+  for (const i of [0, P.RINGS]) assert.equal(P.flowStep(P.defaultProfile(), i, 1.5, 1), 0);
+  assert.equal(P.flowStep(P.defaultProfile(), 10, 1.5, 0), 0);
+  const same = P.defaultProfile().map(() => 1.2);
+  assert.equal(P.flowStep(same, 10, 1.2, 0.5), 0);
 });
