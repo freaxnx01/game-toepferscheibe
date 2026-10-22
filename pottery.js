@@ -54,7 +54,16 @@
     for (let i = 0; i < segments; i++) for (let j = 0; j < n - 1; j++) { const a = i * n + j, b = a + n, c = b + 1, d = a + 1; indices.push(a, b, d, c, d, b); }
     return { positions, uvs, indices };
   };
-  const api = { CORNERS, NOTCH_DEPTH, NOTCH_HALF_WIDTH, NOTCH_MIN_GAP, MAX_NOTCHES, cornerFactor, rimDrop, addNotch, angleOf, outline, buildMesh, MOTOR_GAIN, rubGain, RINGS, MINR, MAXR, HMIN, HMAX, MAX_WORKS, defaultProfile, lumpShape, newId, makeShape, canEdit, upsertEntry };
+  const FLOW_TAU = 1000;
+  const flowFactor = (dtMs) => (Number.isFinite(dtMs) && dtMs > 0 ? 1 - Math.exp(-dtMs / FLOW_TAU) : 0);
+  const flowStep = (profile, idx, radius, f) => {
+    if (idx < 1 || idx >= RINGS) return 0;
+    const r = Math.min(MAXR, Math.max(0.2, radius));
+    let max = 0;
+    for (let k = -3; k <= 3; k++) { const j = idx + k; if (j < 1 || j >= RINGS) continue; const d = (r - profile[j]) * Math.exp(-k * k / 4) * f; profile[j] += d; max = Math.max(max, Math.abs(d)); }
+    return max;
+  };
+  const api = { FLOW_TAU, flowFactor, flowStep, CORNERS, NOTCH_DEPTH, NOTCH_HALF_WIDTH, NOTCH_MIN_GAP, MAX_NOTCHES, cornerFactor, rimDrop, addNotch, angleOf, outline, buildMesh, MOTOR_GAIN, rubGain, RINGS, MINR, MAXR, HMIN, HMAX, MAX_WORKS, defaultProfile, lumpShape, newId, makeShape, canEdit, upsertEntry };
   if (typeof window !== 'undefined') window.Pottery = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();

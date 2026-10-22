@@ -178,7 +178,7 @@
   </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;wheelSpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0.3,&quot;max&quot;:2,&quot;step&quot;:0.1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Scheibe&quot;},&quot;clayStrength&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0.5,&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;step&quot;:0.1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Scheibe&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;wheelSpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0.3,&quot;max&quot;:2,&quot;step&quot;:0.1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Scheibe&quot;}}">
 const GLAZES = [
   { name: 'Honig', color: '#C8893A', rough: 0.3 },
   { name: 'Seladon', color: '#9FB8A3', rough: 0.35 },
@@ -248,7 +248,8 @@ class Component extends DCLogic {
     r.domElement.style.display = 'block';
     this.ro = new ResizeObserver(() => this.resize()); this.ro.observe(el);
     this.resize();
-    const tick = () => { this.raf = requestAnimationFrame(tick); if (this.state.spinning && this.state.screen !== 'gallery') this.group.rotation.y += 0.012 * (this.props.wheelSpeed ?? 1); this.renderer.render(this.scene, this.camera); };
+    let last = performance.now();
+    const tick = () => { this.raf = requestAnimationFrame(tick); const now = performance.now(), dt = Math.min(100, now - last); last = now; this.flowTick(dt); if (this.state.spinning && this.state.screen !== 'gallery') this.group.rotation.y += 0.012 * (this.props.wheelSpeed ?? 1); this.renderer.render(this.scene, this.camera); };
     tick();
   }
   wheelTexture() {
@@ -316,9 +317,10 @@ class Component extends DCLogic {
   }
   snapshot() { this.history.push({ p: this.profile.slice(), h: this.height, n: this.notches.slice(), c: this.corners, l: { ...this.lump }, e: this.editId, g: this.preferredGlaze }); if (this.history.length > 60) this.history.shift(); }
 
-  applyLump(size, form) { const l = Pottery.lumpShape(size, form); this.profile = l.profile; this.height = l.height; this.notches = []; this.corners = 'rund'; this.lump = { size, form }; }
+  applyLump(size, form) { this.shapeTarget = null; const l = Pottery.lumpShape(size, form); this.profile = l.profile; this.height = l.height; this.notches = []; this.corners = 'rund'; this.lump = { size, form }; }
   currentShape() { return Pottery.makeShape({ profile: this.profile, height: this.height, notches: this.notches, corners: this.corners, lump: this.lump }); }
   loadWork(w) {
+    this.shapeTarget = null;
     const sh = w.shape;
     this.profile = sh.profile.slice(); this.height = sh.height; this.notches = (sh.notches || []).slice(); this.corners = sh.corners || 'rund'; this.lump = { ...DEFAULT_LUMP, ...(sh.lump || {}) };
     this.editId = w.id; this.preferredGlaze = w.glaze; this.history = []; clearInterval(this.fireTimer); this.resetMaterial(); this.refresh();
@@ -339,11 +341,17 @@ class Component extends DCLogic {
     const right = new THREE.Vector3(Math.cos(this.cam.theta), 0, -Math.sin(this.cam.theta));
     return { x: hit.dot(right), y: hit.y };
   }
-  applyAt(y, radius) {
-    const idx = Math.round((y / (2 * this.height)) * (RINGS - 1)); if (idx < 1 || idx >= RINGS) return;
-    const rr = Math.min(MAXR, Math.max(0.2, radius));
-    for (let k = -3; k <= 3; k++) { const j = idx + k; if (j < 1 || j >= RINGS) continue; const w = Math.exp(-(k * k) / 4); this.profile[j] += (rr - this.profile[j]) * w * (this.props.clayStrength ?? 0.5); }
-    this.refresh();
+  applyAt(y, radius) { this.shapeTarget = { y, r: radius }; }
+  // one finger: its distance from the axis; two fingers: half their spread, at their mean height
+  aimAt(ps) {
+    if (ps.length >= 2) { const a = this.toLocal(ps[0]), b = this.toLocal(ps[1]); if (a && b) this.applyAt((a.y + b.y) / 2, Math.abs(a.x - b.x) / 2); }
+    else { const p = this.toLocal(ps[0]); if (p) this.applyAt(p.y, Math.abs(p.x)); }
+  }
+  flowTick(dtMs) {
+    const t = this.shapeTarget;
+    if (!t || this.mode !== 'shape' || !this.pointers.size || this.state.screen !== 'wheel' || this.state.pickingLump || this.state.tool) return;
+    const idx = Math.round((t.y / (2 * this.height)) * (RINGS - 1));
+    if (Pottery.flowStep(this.profile, idx, t.r, Pottery.flowFactor(dtMs)) > 1e-4) this.refresh();
   }
   bindPointer(el) {
     el.addEventListener('pointerdown', e => {
@@ -351,8 +359,8 @@ class Component extends DCLogic {
       el.setPointerCapture(e.pointerId);
       if (!this.pointers.size) this.mode = (this.state.screen === 'wheel' && !this.state.pickingLump && !this.state.tool && e.button === 0 && this.hitsPot(e)) ? 'shape' : 'orbit';
       if (!this.pointers.size && this.state.screen === 'wheel' && this.state.tool && !this.state.pickingLump && e.button === 0) this.notchAt(e);
-      this.pointers.set(e.pointerId, e);
-      if (this.mode === 'shape') { this.snapshot(); this.startSound(); this.lastMove = null; }
+      this.pointers.set(e.pointerId, e); this.shapeTarget = null;
+      if (this.mode === 'shape') { this.snapshot(); this.startSound(); this.lastMove = null; this.aimAt([...this.pointers.values()]); }
     });
     el.addEventListener('pointermove', e => {
       if (!this.pointers.has(e.pointerId)) return;
@@ -367,14 +375,9 @@ class Component extends DCLogic {
       }
       const now = performance.now(), dt = this.lastMove ? now - this.lastMove : 0; this.lastMove = now;
       if (dt > 0) this.setRub(Math.hypot(e.clientX - prev.clientX, e.clientY - prev.clientY) / dt * 1000);
-      if (ps.length >= 2) {
-        const a = this.toLocal(ps[0]), b = this.toLocal(ps[1]); if (!a || !b) return;
-        this.applyAt((a.y + b.y) / 2, Math.abs(a.x - b.x) / 2);
-      } else {
-        const p = this.toLocal(e); if (!p) return; this.applyAt(p.y, Math.abs(p.x));
-      }
+      this.aimAt(ps);
     });
-    const up = e => { this.pointers.delete(e.pointerId); if (!this.pointers.size) { this.pinchDist = 0; this.lastMove = null; this.setRub(0); } };
+    const up = e => { this.pointers.delete(e.pointerId); if (!this.pointers.size) { this.shapeTarget = null; this.pinchDist = 0; this.lastMove = null; this.setRub(0); } else if (this.mode === 'shape') this.aimAt([...this.pointers.values()]); };
     el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
     el.addEventListener('contextmenu', e => e.preventDefault());
     el.addEventListener('wheel', e => {
@@ -384,7 +387,7 @@ class Component extends DCLogic {
   }
   // random but pleasant pot: tapered base + belly + optional rim flare
   randomShape() {
-    this.snapshot();
+    this.shapeTarget = null; this.snapshot();
     const rnd = (a, b) => a + Math.random() * (b - a);
     const base = rnd(0.55, 1.1), taper = rnd(-0.2, 0.45), belly = rnd(-0.15, 0.5), bellyAt = rnd(0.25, 0.65), flare = rnd(0, 0.35);
     this.profile = Array.from({ length: RINGS }, (_, i) => {
@@ -492,7 +495,7 @@ class Component extends DCLogic {
       startFire: () => this.startFire(),
       randomShape: () => this.randomShape(),
       taller: () => this.changeHeight(0.08), shorter: () => this.changeHeight(-0.08),
-      undo: () => { const h = this.history.pop(); if (!h) return; this.profile = h.p; this.height = h.h; this.notches = h.n; this.corners = h.c; this.lump = h.l; this.editId = h.e; this.preferredGlaze = h.g; this.refresh(); this.forceUpdate(); },
+      undo: () => { const h = this.history.pop(); if (!h) return; this.shapeTarget = null; this.profile = h.p; this.height = h.h; this.notches = h.n; this.corners = h.c; this.lump = h.l; this.editId = h.e; this.preferredGlaze = h.g; this.refresh(); this.forceUpdate(); },
       resetClay: () => { this.snapshot(); this.applyLump(s.lumpSize, s.lumpForm); this.editId = null; this.preferredGlaze = null; this.refresh(); this.setState({ pickingLump: false }); },
       toggleSpin: () => { if (s.tool) this.spinBeforeTool = !s.spinning; this.setState({ spinning: !s.spinning }, () => this.setMotor(this.state.spinning)); },
       toggleSound: () => this.setState({ sound: !s.sound }, () => { if (this.state.sound) this.startSound(); else this.stopSound(); }),
