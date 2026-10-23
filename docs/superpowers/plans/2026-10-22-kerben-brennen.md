@@ -82,9 +82,10 @@
 - Modify: `index.html` (`saveToGallery` ~l.502–507; scene setup l.237–246 to keep references to `wheel` and `rim`)
 - Test: `tests/e2e/smoke.py` (new flow `gallery_no_wheel`)
 
-Decision: only new works; existing gallery images stay as they are.
+Decision: only new works; existing gallery images stay as they are. Added (user, issue #11 comment): the turntable is also hidden on the `firing` and `done` screens (from „In den Ofen“ on) and reappears only back on `wheel`/`glaze`. Implement as one `wheelVisible(screen)` rule applied whenever the screen changes (e.g. in componentDidUpdate or a single place that syncs `this.wheel.visible`/`this.rim.visible`), so returning from gallery/start to `firing`/`done` also hides it. The gallery photo then needs no special toggling when taken from `done`, but keep the explicit hide in saveToGallery anyway for safety.
 
 - [ ] **Step 1: Failing e2e** `gallery_no_wheel`: make a work (`make_work`), read `gallery(page)[0]['img']`, draw it into a canvas in the page and sample the pixel colours in a band near the image bottom below the pot (e.g. rows at 85–90 % height, columns 20–80 %). Assert none of them is close to the wheel texture colours; read `wheelTexture()` and the rim material for the exact colours, and assert that the band matches the plain background `#E8DAC2` / scene backdrop within tolerance. Run `FLOW=gallery_no_wheel` under the memory cap → FAIL.
 - [ ] **Step 2: Implement** — keep `this.wheel` / `this.rim` from scene setup. In `saveToGallery`, set `visible = false` on both (and on the shadow-only ground if it shows the wheel shadow) before `this.renderer.render`, then restore `visible = true` right after `drawImage`.
-- [ ] **Step 3:** run the flow green, plus `FLOW=edit_replaces`.
+- [ ] **Step 2b: e2e** in the same flow: after „In den Ofen →“ assert via `page.evaluate` that the wheel object is not visible (expose nothing new globally if avoidable; reading the component instance is fine if existing tests already do so, else sample pixels below the pot as in Step 1), and after „Weiter töpfern“ that it is visible again.
+- [ ] **Step 3:** run the flow green, plus `FLOW=edit_replaces` and `FLOW=back_during_firing`.
 - [ ] **Step 4: Commit** `feat(galerie): Werke ohne Drehteller abbilden (#11)`.
