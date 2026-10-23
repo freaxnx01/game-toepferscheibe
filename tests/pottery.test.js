@@ -197,8 +197,8 @@ test('wetStep edges and bad dt', () => {
 
 test('wetRoughness', () => {
   assert.equal(P.wetRoughness(0), 0.95);
-  assert.ok(Math.abs(P.wetRoughness(1) - 0.45) < 1e-9);
-  assert.ok(Math.abs(P.wetRoughness(2) - 0.45) < 1e-9);
+  assert.ok(Math.abs(P.wetRoughness(1) - 0.38) < 1e-9);
+  assert.ok(Math.abs(P.wetRoughness(2) - 0.38) < 1e-9);
 });
 
 test('outlineRings maps outline points to rings', () => {

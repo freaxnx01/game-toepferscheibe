@@ -64,7 +64,7 @@
     }
     return changed;
   };
-  const wetRoughness = (w) => 0.95 - 0.5 * Math.min(1, Math.max(0, w));
+  const wetRoughness = (w) => 0.95 - 0.57 * Math.min(1, Math.max(0, w));
   const buildMesh = (shape, segments = 72) => {
     const pts = outline(shape.profile, shape.height), n = pts.length, H = 2 * shape.height, band = 0.35, y0 = H - band;
     const positions = new Float32Array((segments + 1) * n * 3), uvs = new Float32Array((segments + 1) * n * 2), indices = [];

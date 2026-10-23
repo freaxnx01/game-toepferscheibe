@@ -370,6 +370,17 @@ def wet_shine(b, url):
     assert w >= 0.8, f'not wet while shaping: {w}'
     frames(page, 160)  # 8 s
     assert wet_max(page) == 0, f'still wet after 8 s: {wet_max(page)}'
+    page.mouse.move(box['x'] + 15, cy); page.mouse.down()  # next to the pot: orbit, no wetting
+    page.mouse.move(box['x'] + 40, cy); frames(page, 10)
+    page.mouse.up()
+    assert wet_max(page) == 0, 'orbit drag wetted the clay'
+    for label, pre in (('undo', ['↶ Rückgängig']), ('reset', ['Neuer Tonklumpen', 'Ton auflegen'])):
+        page.mouse.move(cx, cy); page.mouse.down()
+        page.mouse.move(cx + 2, cy - 2); frames(page, 4)
+        assert wet_max(page) > 0, f'not wet before {label}'
+        page.mouse.up()
+        for t in pre: click(page, t)
+        assert wet_max(page) == 0, f'still wet after {label}'
     page.mouse.move(cx, cy); page.mouse.down()
     page.mouse.move(cx + 2, cy - 2); frames(page, 10)
     assert wet_max(page) > 0
