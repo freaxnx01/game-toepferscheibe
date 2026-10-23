@@ -91,12 +91,17 @@ test('rimDrop', () => {
   assert.ok(P.rimDrop([0.05], TAU - 0.05) > 0);
   assert.equal(P.rimDrop([1], 2), 0);
 });
+test('notchBlock', () => {
+  assert.equal(P.notchBlock([1], 1.1), 'near'); assert.equal(P.notchBlock([1], 2), null); assert.equal(P.notchBlock([], 0), null);
+  assert.equal(P.notchBlock(Array.from({ length: 16 }, (_, i) => i * 0.3), 6), 'full');
+  assert.equal(P.notchBlock([0.1], TAU - 0.05), 'near');
+});
 test('addNotch', () => {
   assert.deepEqual(P.addNotch([1], 1.1), [1]);
   assert.equal(P.addNotch([1], 2).length, 2);
   assert.ok(Math.abs(P.addNotch([], -0.5)[0] - (TAU - 0.5)) < 1e-9);
-  let n = []; for (let i = 0; i < 12; i++) n = P.addNotch(n, i * 0.5);
-  assert.equal(n.length, P.MAX_NOTCHES);
+  let n = []; for (let i = 0; i < 30; i++) n = P.addNotch(n, i * 0.3);
+  assert.equal(n.length, P.MAX_NOTCHES); assert.equal(P.MAX_NOTCHES, 16);
 });
 test('angleOf', () => {
   assert.ok(Math.abs(P.angleOf(1, 0) - Math.PI / 2) < 1e-9);
@@ -150,4 +155,15 @@ test('flowStep', () => {
   assert.equal(P.flowStep(P.defaultProfile(), 10, 1.5, 0), 0);
   const same = P.defaultProfile().map(() => 1.2);
   assert.equal(P.flowStep(same, 10, 1.2, 0.5), 0);
+});
+
+test('fireSteps', () => {
+  const T1 = 'Der Ofen heizt langsam auf. Die Glasur schmilzt und wird glänzend.', T2 = 'Der Ofen kühlt ab. Gleich können Sie Ihr Stück herausnehmen.';
+  const st = (p) => P.fireSteps(p).map(s => s.state);
+  assert.deepEqual(P.fireSteps(0).map(s => s.text), [T1, T2]);
+  assert.deepEqual(st(0), ['active', 'todo']);
+  assert.deepEqual(st(59), ['active', 'todo']);
+  assert.deepEqual(st(60), ['done', 'active']);
+  assert.deepEqual(st(99), ['done', 'active']);
+  assert.deepEqual(st(100), ['done', 'done']);
 });
