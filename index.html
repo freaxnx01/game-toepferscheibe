@@ -227,7 +227,9 @@ class Component extends DCLogic {
     if (this.renderer) this.renderer.dispose();
     this.stopSound();
   }
+  syncWheel(show = !['firing', 'done'].includes(this.state.screen)) { if (this.wheel) this.wheel.visible = this.rim.visible = show; }  // turntable only at the wheel/glaze, never from „In den Ofen“ on
   componentDidUpdate() {
+    this.syncWheel();
     // support.js passes only prevProps here, so track the last screen ourselves.
     if (this.lastScreen !== this.state.screen) { this.lastScreen = this.state.screen; requestAnimationFrame(() => this.resize()); setTimeout(() => this.resize(), 60); }
   }
@@ -250,7 +252,7 @@ class Component extends DCLogic {
     floor.rotation.x = -Math.PI / 2; floor.position.y = -0.18; floor.receiveShadow = true; s.add(floor);
     this.mat = new THREE.MeshStandardMaterial({ color: CLAY, roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
     this.pot = new THREE.Mesh(this.buildGeo(), this.mat); this.pot.castShadow = true; this.pot.receiveShadow = true; s.add(this.pot);
-    this.group = new THREE.Group(); this.group.add(wheel, rim, this.pot); s.add(this.group);
+    this.wheel = wheel; this.rim = rim; this.group = new THREE.Group(); this.group.add(wheel, rim, this.pot); s.add(this.group);
     this.bindPointer(el);
     r.domElement.style.display = 'block';
     this.ro = new ResizeObserver(() => this.resize()); this.ro.observe(el);
@@ -516,10 +518,10 @@ class Component extends DCLogic {
       toggleSpin: () => { if (s.tool) this.spinBeforeTool = !s.spinning; this.setState({ spinning: !s.spinning }, () => this.setMotor(this.state.spinning)); },
       toggleSound: () => this.setState({ sound: !s.sound }, () => { if (this.state.sound) this.startSound(); else this.stopSound(); }),
       saveToGallery: () => {
-        this.renderer.render(this.scene, this.camera);
+        this.syncWheel(false); this.renderer.render(this.scene, this.camera);
         const c = this.renderer.domElement, size = Math.min(c.width, c.height), out = document.createElement('canvas'); out.width = out.height = 480;
         const ctx = out.getContext('2d'); ctx.fillStyle = '#E8DAC2'; ctx.fillRect(0, 0, 480, 480);
-        ctx.drawImage(c, (c.width - size) / 2, (c.height - size) / 2, size, size, 0, 0, 480, 480);
+        ctx.drawImage(c, (c.width - size) / 2, (c.height - size) / 2, size, size, 0, 0, 480, 480); this.syncWheel();
         const w = { id: Pottery.newId(), img: out.toDataURL('image/jpeg', 0.8), glaze: s.glaze ? s.glaze.name : 'Unglasiert', date: new Date().toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }), shape: this.currentShape() };
         const gallery = Pottery.upsertEntry(s.gallery, w, this.editId); this.editId = w.id;
         try { localStorage.setItem(KEY, JSON.stringify(gallery)); } catch (e) {}

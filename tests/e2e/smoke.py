@@ -366,7 +366,38 @@ def notch_hint(b, url):
     wait_text(page, 'Zu nah an einer Kerbe')
 
 
-FLOWS = [sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
+def wheel_px(page, src):
+    # draw src (data URL, or None = the live canvas) on #E8DAC2 like saveToGallery; count pixels in the band beside/below the pot that are not the plain backdrop
+    return page.evaluate("""async (src) => {
+        const im = new Image(); im.src = src || document.querySelector('canvas').toDataURL('image/png'); await im.decode();
+        const n = Math.min(im.width, im.height), c = document.createElement('canvas'); c.width = c.height = 480; const x = c.getContext('2d');
+        x.fillStyle = '#E8DAC2'; x.fillRect(0, 0, 480, 480); x.drawImage(im, (im.width - n) / 2, (im.height - n) / 2, n, n, 0, 0, 480, 480);
+        let bad = 0;  // side bands (the pot fills the middle); tolerance 80 lets the faint floor shadow pass, the wheel (#6b4a33) is ~125 off
+        for (const [x0, w] of [[0, 90], [390, 90]]) { const d = x.getImageData(x0, 300, w, 150).data;
+          for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - 0xE8) > 80 || Math.abs(d[i + 1] - 0xDA) > 80 || Math.abs(d[i + 2] - 0xC2) > 80) bad++; }
+        return bad; }""", src)
+
+
+def gallery_no_wheel(b, url):
+    page = new_page(b, url)
+    page.set_viewport_size({'width': 640, 'height': 460}); page.set_default_timeout(300000)
+    click(page, 'Ton auf die Scheibe legen')
+    assert wheel_px(page, None) > 0, 'sanity: wheel visible at the wheel'
+    click(page, 'Fertig – Glasieren →'); click(page, 'Kobalt'); click(page, 'In den Ofen →')
+    wait_text(page, 'Stück herausnehmen →')
+    assert wheel_px(page, None) == 0, 'wheel visible while firing'
+    click(page, 'Stück herausnehmen →'); wait_text(page, 'In die Galerie stellen')
+    assert wheel_px(page, None) == 0, 'wheel visible on done'
+    click(page, 'Galerie (0)', exact=False); wait_text(page, 'Meine Werke')
+    page.get_by_role('button', name=BACK).first.click(no_wait_after=True); wait_text(page, 'In die Galerie stellen')
+    assert wheel_px(page, None) == 0, 'wheel visible on done after returning from gallery'
+    click(page, 'In die Galerie stellen'); wait_text(page, 'Entfernen')
+    assert wheel_px(page, gallery(page)[0]['img']) == 0, 'wheel in gallery photo'
+    click(page, 'Weiter töpfern'); wait_text(page, 'An der Scheibe')
+    assert wheel_px(page, None) > 0, 'wheel not back at the wheel'
+
+
+FLOWS = [gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
 
 
 def main():
