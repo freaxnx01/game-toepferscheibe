@@ -135,7 +135,7 @@
           </div>
           <div style="font-size:26px; font-weight:700;">{{ fireTemp }}</div>
           <sc-if value="{{ fireDone }}" hint-placeholder-val="{{ false }}">
-            <button onClick="{{ takeOut }}" style="min-height:84px; font-size:28px; font-weight:700; color:#FBF6EC; background:#B45E3A; border:none; border-radius:18px; cursor:pointer; box-shadow:0 6px 0 #8A4428;" style-hover="background:#9B4D2E;" style-active="transform:translateY(4px); box-shadow:0 2px 0 #8A4428;">Stück herausnehmen →</button>
+            <button data-takeout onClick="{{ takeOut }}" style="min-height:84px; font-size:28px; font-weight:700; color:#FBF6EC; background:#B45E3A; border:none; border-radius:18px; cursor:pointer; box-shadow:0 6px 0 #8A4428;" style-hover="background:#9B4D2E;" style-active="transform:translateY(4px); box-shadow:0 2px 0 #8A4428;">Stück herausnehmen →</button>
           </sc-if>
         </div>
       </sc-if>
@@ -231,6 +231,9 @@ class Component extends DCLogic {
   componentDidUpdate() {
     this.syncWheel();
     // support.js passes only prevProps here, so track the last screen ourselves.
+    const fin = this.state.screen === 'firing' && this.state.firePct >= 100;  // portrait iPad: the button sits below the fold, so bring it into view once when it appears
+    if (fin && !this.finShown) requestAnimationFrame(() => { const b = document.querySelector('[data-takeout]'); if (b) b.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+    this.finShown = fin;
     if (this.lastScreen !== this.state.screen) { this.lastScreen = this.state.screen; requestAnimationFrame(() => this.resize()); setTimeout(() => this.resize(), 60); }
   }
 
@@ -302,19 +305,19 @@ class Component extends DCLogic {
     const o = this.pot.worldToLocal(ray.ray.origin.clone()), d = this.pot.worldToLocal(ray.ray.origin.clone().add(ray.ray.direction)).sub(o), rr = this.profile[RINGS - 1] + 0.1;
     const qa = d.x * d.x + d.z * d.z, qb = o.x * d.x + o.z * d.z, disc = qb * qb - qa * (o.x * o.x + o.z * o.z - rr * rr), t = qa > 1e-9 && disc >= 0 ? (-qb - Math.sqrt(disc)) / qa : -1;
     const pl = t > 0 ? o.clone().addScaledVector(d, t) : null, planeOk = !!pl && pl.y > rimY - 0.5 && pl.y < rimY + 0.1, ap = planeOk ? Pottery.angleOf(pl.x, pl.z) : 0, hitOk = l && l.y > rimY - 0.5;
-    let ang = null; if (hitOk) { ang = Pottery.angleOf(l.x, l.z); if (planeOk) { let d = Math.abs(ang - ap) % (2 * Math.PI); if (d > Math.PI) d = 2 * Math.PI - d; if (d > 0.5) ang = ap; } } else if (planeOk) ang = ap;
+    let ang = null; if (hitOk) { ang = Pottery.angleOf(l.x, l.z); if (planeOk) { let da = Math.abs(ang - ap) % (2 * Math.PI); if (da > Math.PI) da = 2 * Math.PI - da; if (da > 0.5) ang = ap; } } else if (planeOk) ang = ap;
     if (ang === null) return;
-    const a = ang, why = Pottery.notchBlock(this.notches, a);
+    const why = Pottery.notchBlock(this.notches, ang);
     if (why) { this.flashNotchMsg(why === 'full' ? 'Mehr Kerben passen nicht auf den Rand.' : 'Zu nah an einer Kerbe – tippen Sie etwas daneben.'); return; }
-    this.snapshot(); this.notches = Pottery.addNotch(this.notches, a); this.refresh();
+    this.snapshot(); this.notches = Pottery.addNotch(this.notches, ang); this.refresh();
   }
-  flashNotchMsg(m) { clearTimeout(this.notchTimer); this.setState({ notchMsg: m }); this.notchTimer = setTimeout(() => this.setState({ notchMsg: null }), 3000); }
+  flashNotchMsg(m) { clearTimeout(this.notchTimer); this.setState({ notchMsg: m }); this.notchTimer = setTimeout(() => this.setState({ notchMsg: null }), 5000); }
   setToolMode(on) {
     if (on === this.state.tool) return;
     if (on) { this.spinBeforeTool = this.state.spinning; this.setState({ tool: true, spinning: false }, () => this.setMotor(false)); }
     else { clearTimeout(this.notchTimer); this.setState(this.toolOff(), () => this.setMotor(this.state.spinning)); }
   }
-  toolOff() { return this.state.tool ? { tool: false, spinning: this.spinBeforeTool, notchMsg: null } : { tool: false, notchMsg: null }; }
+  toolOff() { clearTimeout(this.notchTimer); return this.state.tool ? { tool: false, spinning: this.spinBeforeTool, notchMsg: null } : { tool: false, notchMsg: null }; }
   setCorners(mode) { this.snapshot(); this.corners = mode; this.refresh(); this.forceUpdate(); }
   buildGeo() {
     const THREE = window.THREE, m = Pottery.buildMesh(this.currentShape()), g = new THREE.BufferGeometry();
@@ -339,8 +342,8 @@ class Component extends DCLogic {
     this.shapeTarget = null;
     const sh = w.shape;
     this.profile = sh.profile.slice(); this.height = sh.height; this.notches = (sh.notches || []).slice(); this.corners = sh.corners || 'rund'; this.lump = { ...DEFAULT_LUMP, ...(sh.lump || {}) };
-    this.editId = w.id; this.preferredGlaze = w.glaze; this.history = []; clearInterval(this.fireTimer); this.resetMaterial(); this.refresh();
-    this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true));
+    this.editId = w.id; this.preferredGlaze = w.glaze; this.history = []; clearInterval(this.fireTimer); clearTimeout(this.notchTimer); this.resetMaterial(); this.refresh();
+    this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, notchMsg: null, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true));
   }
 
   // --- shaping: map screen position to ring index + radius in world units
@@ -493,7 +496,7 @@ class Component extends DCLogic {
       glazeName: s.glaze ? s.glaze.name : '',
       glazes: GLAZES.map(g => ({ name: g.name, color: g.color, border: s.glaze && s.glaze.name === g.name ? '#B45E3A' : '#D9C9B2', pick: () => this.setGlaze(g) })),
       gallery: s.gallery.map((w, i) => ({ ...w, canEdit: Pottery.canEdit(w), edit: () => this.loadWork(w), thumbStyle: { width: '100%', aspectRatio: '1', backgroundColor: '#E2D2B9', backgroundImage: `url("${w.img}")`, backgroundSize: 'cover', backgroundPosition: 'center' }, remove: () => { const gallery = s.gallery.filter((_, j) => j !== i); localStorage.setItem(KEY, JSON.stringify(gallery)); this.setState({ gallery }); } })),
-      startNew: () => { this.applyLump(s.lumpSize, s.lumpForm); this.history = []; this.editId = null; this.preferredGlaze = null; clearInterval(this.fireTimer); this.resetMaterial(); this.refresh(); this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true)); },
+      startNew: () => { this.applyLump(s.lumpSize, s.lumpForm); this.history = []; this.editId = null; this.preferredGlaze = null; clearInterval(this.fireTimer); clearTimeout(this.notchTimer); this.resetMaterial(); this.refresh(); this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, notchMsg: null, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true)); },
       goStart: () => this.setState({ screen: 'start', returnScreen: ['wheel', 'glaze', 'firing', 'done'].includes(s.screen) ? s.screen : s.returnScreen }, () => this.setMotor(false)),
       hasReturnStart: screen === 'start' && !!s.returnScreen,
       sizeOpts: [['klein', 'Klein'], ['mittel', 'Mittel'], ['gross', 'Gross']].map(([v, label]) => ({ label, border: s.lumpSize === v ? '#B45E3A' : '#B9A58A', color: s.lumpSize === v ? '#FBF6EC' : '#35261B', bg: s.lumpSize === v ? '#B45E3A' : '#F4ECDF', pick: () => this.setState({ lumpSize: v }) })),

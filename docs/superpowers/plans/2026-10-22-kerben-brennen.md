@@ -10,7 +10,7 @@
 
 **Spec:** Issues #9 and #10 (bodies are the spec). Decisions made in session (controller's calls, recorded here):
 - `MAX_NOTCHES` 8 → **16** (rim fits ~25 at 0.25 rad gap; 16 keeps room between notches).
-- Rejection hint texts (game copy uses „Sie“): full → **„Mehr Kerben passen nicht auf den Rand.“**; too close → **„Zu nah an einer Kerbe – tippen Sie etwas daneben.“** Shown in the existing bottom hint box for **3 s**, then the normal tool hint returns.
+- Rejection hint texts (game copy uses „Sie“): full → **„Mehr Kerben passen nicht auf den Rand.“**; too close → **„Zu nah an einer Kerbe – tippen Sie etwas daneben.“** Shown in the existing bottom hint box for **5 s**, then the normal tool hint returns.
 - Lost `pointerup` safety: also treat `lostpointercapture` like `pointerup`.
 - Firing: steps list, no auto-switch; button **„Stück herausnehmen →“** appears at 100 % and goes to `done`.
 
@@ -48,7 +48,7 @@
 - [ ] **Step 2:** `node --test` → the new assertions FAIL.
 - [ ] **Step 3: Implement** `notchBlock` in `pottery.js`, export it, set `MAX_NOTCHES = 16`, make `addNotch` return `[...notches]` iff `notchBlock` is non-null.
 - [ ] **Step 4:** `node --test` → all pass.
-- [ ] **Step 5: UI** — in `notchAt`, after the rim hit check, call `Pottery.notchBlock`; if non-null set a transient hint (state field e.g. `notchMsg`, cleared by a `setTimeout` of 3000 ms that is cleared/replaced on each new message and on unmount) and return without `snapshot()`. In `renderVals`, when `s.tool && s.notchMsg` show `notchMsg` instead of the tool hint. Clear `notchMsg` when leaving tool mode. Add `el.addEventListener('lostpointercapture', up)` next to `pointerup`/`pointercancel`.
+- [ ] **Step 5: UI** — in `notchAt`, after the rim hit check, call `Pottery.notchBlock`; if non-null set a transient hint (state field e.g. `notchMsg`, cleared by a `setTimeout` of 5000 ms that is cleared/replaced on each new message and on unmount) and return without `snapshot()`. In `renderVals`, when `s.tool && s.notchMsg` show `notchMsg` instead of the tool hint. Clear `notchMsg` when leaving tool mode. Add `el.addEventListener('lostpointercapture', up)` next to `pointerup`/`pointercancel`.
 - [ ] **Step 6: e2e first-red then green** — add flow `notch_hint` to `tests/e2e/smoke.py` (and to `FLOWS`): place a notch at `rim_point(page, 0.0)`, tap the same spot again, `wait_text(page, 'Zu nah an einer Kerbe')`. Run it red against the unmodified `index.html` if feasible (or note that the text cannot appear before Step 5), then green: `FLOW=notch_hint systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 python3 tests/e2e/smoke.py`. Also run `FLOW=tools`.
 - [ ] **Step 7: Commit** `fix(werkzeuge): Kerben-Limit 16 und Hinweis bei abgelehnter Kerbe (#9)`.
 

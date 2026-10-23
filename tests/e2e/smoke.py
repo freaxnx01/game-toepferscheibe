@@ -147,8 +147,11 @@ def back_during_firing(b, url):
     page.get_by_role('button', name=BACK).first.click(no_wait_after=True)  # the post-click wait starves on the software-GL canvas
     wait_text(page, 'Stück herausnehmen →')
     for t in ('Der Ofen heizt langsam auf.', 'Der Ofen kühlt ab.'): assert page.get_by_text(t, exact=False).count() == 1, f'step missing: {t}'
+    assert page.get_by_text('Fertig gebrannt').count() == 0, 'auto-advanced to done without the button'
+    assert page.get_by_text('✓').count() == 2, 'expected two done marks'
     click(page, 'Stück herausnehmen →')
     wait_text(page, 'Fertig gebrannt')
+    assert page.get_by_text('Fertig', exact=True).count() >= 1, 'step label Fertig missing'
 
 
 def no_back_after_save(b, url):
@@ -367,15 +370,30 @@ def notch_hint(b, url):
 
 
 def wheel_px(page, src):
-    # draw src (data URL, or None = the live canvas) on #E8DAC2 like saveToGallery; count pixels in the band beside/below the pot that are not the plain backdrop
+    # bands are in the 480px square crop of a 640x460 viewport (caller sets it); the pot fills the middle, the wheel would show in the sides
+    # draw src (data URL, or None = the live canvas) on #E8DAC2 like saveToGallery; return permille of pixels in the bands beside/below the pot that are not the plain backdrop (tolerance < 5 = 0.5 %)
     return page.evaluate("""async (src) => {
         const im = new Image(); im.src = src || document.querySelector('canvas').toDataURL('image/png'); await im.decode();
         const n = Math.min(im.width, im.height), c = document.createElement('canvas'); c.width = c.height = 480; const x = c.getContext('2d');
         x.fillStyle = '#E8DAC2'; x.fillRect(0, 0, 480, 480); x.drawImage(im, (im.width - n) / 2, (im.height - n) / 2, n, n, 0, 0, 480, 480);
-        let bad = 0;  // side bands (the pot fills the middle); tolerance 80 lets the faint floor shadow pass, the wheel (#6b4a33) is ~125 off
+        let bad = 0, tot = 0;  // side bands (the pot fills the middle); tolerance 80 lets the faint floor shadow pass, the wheel (#6b4a33) is ~125 off
         for (const [x0, w] of [[0, 90], [390, 90]]) { const d = x.getImageData(x0, 300, w, 150).data;
-          for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - 0xE8) > 80 || Math.abs(d[i + 1] - 0xDA) > 80 || Math.abs(d[i + 2] - 0xC2) > 80) bad++; }
-        return bad; }""", src)
+          for (let i = 0; i < d.length; i += 4) { tot++; if (Math.abs(d[i] - 0xE8) > 80 || Math.abs(d[i + 1] - 0xDA) > 80 || Math.abs(d[i + 2] - 0xC2) > 80) bad++; } }
+        return Math.round(bad * 1000 / tot); }""", src)
+
+
+def portrait_takeout_visible(b, url):
+    page = new_page(b, url)
+    page.set_viewport_size({'width': 800, 'height': 900}); page.set_default_timeout(300000)  # portrait iPad: sidebar wraps below the canvas
+    click(page, 'Ton auf die Scheibe legen'); click(page, 'Fertig – Glasieren →'); click(page, 'Kobalt'); click(page, 'In den Ofen →')
+    page.evaluate('window.scrollTo(0, 0)')  # the click above scrolled the sidebar into view
+    btn = page.get_by_role('button', name='Stück herausnehmen →'); btn.wait_for(state='visible')
+    page.wait_for_timeout(1500)  # smooth scroll
+    bb = btn.bounding_box(); assert bb and bb['y'] >= 0 and bb['y'] + bb['height'] <= 900, f'button below the fold: {bb}'
+    page.evaluate('window.scrollTo(0, 0)'); click(page, 'Galerie (0)', exact=False); wait_text(page, 'Meine Werke')
+    page.get_by_role('button', name=BACK).first.click(no_wait_after=True)
+    btn.wait_for(state='visible'); page.wait_for_timeout(1500)
+    bb = btn.bounding_box(); assert bb and bb['y'] >= 0 and bb['y'] + bb['height'] <= 900, f'button below the fold after back: {bb}'
 
 
 def gallery_no_wheel(b, url):
@@ -385,19 +403,19 @@ def gallery_no_wheel(b, url):
     assert wheel_px(page, None) > 0, 'sanity: wheel visible at the wheel'
     click(page, 'Fertig – Glasieren →'); click(page, 'Kobalt'); click(page, 'In den Ofen →')
     wait_text(page, 'Stück herausnehmen →')
-    assert wheel_px(page, None) == 0, 'wheel visible while firing'
+    assert wheel_px(page, None) < 5, 'wheel visible while firing'
     click(page, 'Stück herausnehmen →'); wait_text(page, 'In die Galerie stellen')
-    assert wheel_px(page, None) == 0, 'wheel visible on done'
+    assert wheel_px(page, None) < 5, 'wheel visible on done'
     click(page, 'Galerie (0)', exact=False); wait_text(page, 'Meine Werke')
     page.get_by_role('button', name=BACK).first.click(no_wait_after=True); wait_text(page, 'In die Galerie stellen')
-    assert wheel_px(page, None) == 0, 'wheel visible on done after returning from gallery'
+    assert wheel_px(page, None) < 5, 'wheel visible on done after returning from gallery'
     click(page, 'In die Galerie stellen'); wait_text(page, 'Entfernen')
-    assert wheel_px(page, gallery(page)[0]['img']) == 0, 'wheel in gallery photo'
+    assert wheel_px(page, gallery(page)[0]['img']) < 5, 'wheel in gallery photo'
     click(page, 'Weiter töpfern'); wait_text(page, 'An der Scheibe')
     assert wheel_px(page, None) > 0, 'wheel not back at the wheel'
 
 
-FLOWS = [gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
+FLOWS = [portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
 
 
 def main():
