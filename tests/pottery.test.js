@@ -167,3 +167,46 @@ test('fireSteps', () => {
   assert.deepEqual(st(99), ['done', 'active']);
   assert.deepEqual(st(100), ['done', 'done']);
 });
+
+test('wetStep wets a ring and its neighbours', () => {
+  const w = new Array(P.RINGS).fill(0);
+  assert.equal(P.wetStep(w, 10, 250), true);
+  assert.equal(w[10], 1);
+  assert.ok(Math.abs(w[9] - 0.6) < 0.01 && Math.abs(w[11] - 0.6) < 0.01);
+  assert.ok(Math.abs(w[12] - 0.25) < 0.01 && Math.abs(w[8] - 0.25) < 0.01);
+  assert.equal(w[13], 0);
+});
+
+test('wetStep dries over time', () => {
+  const w = new Array(P.RINGS).fill(0); w[5] = 1;
+  assert.equal(P.wetStep(w, null, 3250), true);
+  assert.ok(Math.abs(w[5] - 0.5) < 0.01);
+  P.wetStep(w, null, 4000);
+  assert.equal(w[5], 0);
+  assert.equal(P.wetStep(w, null, 100), false);
+});
+
+test('wetStep edges and bad dt', () => {
+  const w = new Array(P.RINGS).fill(0);
+  P.wetStep(w, 0, 100); P.wetStep(w, P.RINGS - 1, 100);
+  assert.equal(w.length, P.RINGS);
+  assert.ok(w.every(Number.isFinite));
+  const c = w.slice();
+  for (const dt of [0, NaN, -5, Infinity]) { assert.equal(P.wetStep(w, 3, dt), false); assert.deepEqual(w, c); }
+});
+
+test('wetRoughness', () => {
+  assert.equal(P.wetRoughness(0), 0.95);
+  assert.ok(Math.abs(P.wetRoughness(1) - 0.45) < 1e-9);
+  assert.ok(Math.abs(P.wetRoughness(2) - 0.45) < 1e-9);
+});
+
+test('outlineRings maps outline points to rings', () => {
+  for (const h of [0.35, 1, 1.6]) {
+    const p = P.defaultProfile(), o = P.outline(p, h), r = P.outlineRings(p, h);
+    assert.equal(r.length, o.length);
+    assert.ok(r.every(v => Number.isInteger(v) && v >= 0 && v < P.RINGS));
+    assert.equal(r[1], 0);
+    assert.equal(r[P.RINGS], P.RINGS - 1);
+  }
+});

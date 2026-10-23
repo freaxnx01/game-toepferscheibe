@@ -349,6 +349,40 @@ def sluggish(b, url):
     assert not errs, errs[:2]
 
 
+def wet_max(page):
+    return float(page.evaluate("() => document.querySelector('[data-wet]').getAttribute('data-wet')"))
+
+
+def wet_shine(b, url):
+    page = new_page(b, url)
+    page.context.add_init_script(VCLOCK); page.reload(wait_until='domcontentloaded')  # virtual clock: 50 ms per frame
+    errs = []
+    page.on('pageerror', lambda e: errs.append(str(e)))
+    click(page, 'Ton auf die Scheibe legen')
+    wait_text(page, 'An der Scheibe')
+    assert wet_max(page) == 0, 'wet at start'
+    box = page.locator('canvas').first.bounding_box()
+    cx, cy = box['x'] + box['width'] / 2, box['y'] + box['height'] * 0.55
+    page.mouse.move(cx, cy); page.mouse.down()
+    page.mouse.move(cx + 2, cy - 2); frames(page, 10)  # 0.5 s
+    w = wet_max(page)
+    page.mouse.up()
+    assert w >= 0.8, f'not wet while shaping: {w}'
+    frames(page, 160)  # 8 s
+    assert wet_max(page) == 0, f'still wet after 8 s: {wet_max(page)}'
+    page.mouse.move(cx, cy); page.mouse.down()
+    page.mouse.move(cx + 2, cy - 2); frames(page, 10)
+    assert wet_max(page) > 0
+    page.mouse.up()
+    click(page, 'Fertig – Glasieren →')
+    assert wet_max(page) == 0, 'wet on glaze screen'
+    click(page, 'In den Ofen →'); click(page, 'Stück herausnehmen →')
+    click(page, 'Neues Stück beginnen'); click(page, 'Ton auf die Scheibe legen')
+    wait_text(page, 'An der Scheibe')
+    assert wet_max(page) == 0, 'wet after new piece'
+    assert not errs, errs[:2]
+
+
 def spin_and_padding(b, url):
     page = new_page(b, url)
     click(page, 'Ton auf die Scheibe legen')
@@ -447,7 +481,7 @@ def analytics(b, url):
     assert not errs, errs[:2]
 
 
-FLOWS = [analytics, portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
+FLOWS = [wet_shine, analytics, portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
 
 
 def main():
