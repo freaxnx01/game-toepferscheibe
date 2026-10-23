@@ -25,8 +25,11 @@ def start_server():
 CTX = []
 
 
-def new_page(browser, url, seed=None):
-    ctx = browser.new_context(viewport={'width': 1180, 'height': 820}); CTX.append(ctx); page = ctx.new_page()
+def new_page(browser, url, seed=None, init=None):
+    ctx = browser.new_context(viewport={'width': 1180, 'height': 820}); CTX.append(ctx)
+    ctx.route('https://stats.freaxnx01.ch/**', lambda r: r.abort())
+    if init: ctx.add_init_script(init)
+    page = ctx.new_page()
     page.set_default_timeout(120000)
     page.goto(url, wait_until='domcontentloaded')
     if seed is not None:
@@ -415,7 +418,36 @@ def gallery_no_wheel(b, url):
     assert wheel_px(page, None) > 0, 'wheel not back at the wheel'
 
 
-FLOWS = [portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
+STUB = "window.umami = {track: (n, d) => (window.__ev = window.__ev || []).push([n, d])}"
+PRIVACY = 'https://github.com/freaxnx01/game-toepferscheibe#datenschutz--privacy'
+
+
+def analytics(b, url):
+    page = new_page(b, url, init=STUB)
+    ev = lambda: page.evaluate('window.__ev || []')
+    page.reload(wait_until='domcontentloaded'); wait_text(page, 'Ton auf die Scheibe legen')
+    assert ev() == [], ev()
+    a = page.get_by_role('link', name='Datenschutz', exact=True)
+    assert a.count() == 1 and a.get_attribute('href') == PRIVACY and a.get_attribute('target') == '_blank' and 'noopener' in a.get_attribute('rel'), 'privacy link'
+    click(page, 'Ton auf die Scheibe legen')
+    assert ev() == [['game_start', {'game': 'toepferscheibe'}]], ev()
+    glaze_fire_save(page, 'Kobalt')
+    click(page, 'Weiter töpfern'); wait_text(page, 'An der Scheibe')
+    assert len(ev()) == 1, ev()
+    click(page, 'Fertig – Glasieren →'); click(page, 'In den Ofen →'); click(page, 'Stück herausnehmen →')
+    wait_text(page, 'In die Galerie stellen'); click(page, 'Neues Stück beginnen')
+    wait_text(page, 'Ton auf die Scheibe legen')
+    assert len(ev()) == 1, ev()
+    click(page, 'Ton auf die Scheibe legen'); wait_text(page, 'An der Scheibe')
+    assert ev() == [['game_start', {'game': 'toepferscheibe'}]] * 2, ev()
+    p2 = new_page(b, url, init="Object.defineProperty(window, 'gameAnalytics', {get: () => undefined, set: () => {}, configurable: true})")
+    errs = []; p2.on('pageerror', lambda e: errs.append(str(e)))
+    p2.reload(wait_until='domcontentloaded'); wait_text(p2, 'Ton auf die Scheibe legen')
+    click(p2, 'Ton auf die Scheibe legen'); wait_text(p2, 'An der Scheibe')
+    assert not errs, errs[:2]
+
+
+FLOWS = [analytics, portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
 
 
 def main():

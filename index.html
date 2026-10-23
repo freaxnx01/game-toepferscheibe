@@ -7,6 +7,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="./pottery.js"></script>
 <script src="./support.js"></script>
+<!-- umami:start -->
+<!-- Umami analytics (self-hosted, server in Germany). data-domains keeps dev/local runs out of the stats. -->
+<script defer src="https://stats.freaxnx01.ch/g.js" data-website-id="fb5c286b-6790-4b29-b8fc-30d18fd9b218" data-domains="github.freaxnx01.ch"></script>
+<script src="./analytics.js"></script>
+<!-- umami:end -->
 </head>
 <body>
 <x-dc>
@@ -48,6 +53,7 @@
       <sc-if value="{{ hasGallery }}" hint-placeholder-val="{{ false }}">
         <button onClick="{{ goGallery }}" style="min-height:64px; padding:0 32px; font-size:24px; font-weight:700; color:#35261B; background:transparent; border:2px solid #35261B; border-radius:16px; cursor:pointer;" style-hover="background:#F0E4D0;">Meine Werke ansehen</button>
       </sc-if>
+      <a href="https://github.com/freaxnx01/game-toepferscheibe#datenschutz--privacy" target="_blank" rel="noopener" style="font-size:18px; color:#6E5A4A;">Datenschutz</a>
     </main>
   </sc-if>
 
@@ -496,7 +502,7 @@ class Component extends DCLogic {
       glazeName: s.glaze ? s.glaze.name : '',
       glazes: GLAZES.map(g => ({ name: g.name, color: g.color, border: s.glaze && s.glaze.name === g.name ? '#B45E3A' : '#D9C9B2', pick: () => this.setGlaze(g) })),
       gallery: s.gallery.map((w, i) => ({ ...w, canEdit: Pottery.canEdit(w), edit: () => this.loadWork(w), thumbStyle: { width: '100%', aspectRatio: '1', backgroundColor: '#E2D2B9', backgroundImage: `url("${w.img}")`, backgroundSize: 'cover', backgroundPosition: 'center' }, remove: () => { const gallery = s.gallery.filter((_, j) => j !== i); localStorage.setItem(KEY, JSON.stringify(gallery)); this.setState({ gallery }); } })),
-      startNew: () => { this.applyLump(s.lumpSize, s.lumpForm); this.history = []; this.editId = null; this.preferredGlaze = null; clearInterval(this.fireTimer); clearTimeout(this.notchTimer); this.resetMaterial(); this.refresh(); this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, notchMsg: null, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true)); },
+      startNew: () => { try { window.gameAnalytics && window.gameAnalytics.track('game_start', { game: 'toepferscheibe' }); } catch (e) {} this.applyLump(s.lumpSize, s.lumpForm); this.history = []; this.editId = null; this.preferredGlaze = null; clearInterval(this.fireTimer); clearTimeout(this.notchTimer); this.resetMaterial(); this.refresh(); this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, notchMsg: null, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true)); },
       goStart: () => this.setState({ screen: 'start', returnScreen: ['wheel', 'glaze', 'firing', 'done'].includes(s.screen) ? s.screen : s.returnScreen }, () => this.setMotor(false)),
       hasReturnStart: screen === 'start' && !!s.returnScreen,
       sizeOpts: [['klein', 'Klein'], ['mittel', 'Mittel'], ['gross', 'Gross']].map(([v, label]) => ({ label, border: s.lumpSize === v ? '#B45E3A' : '#B9A58A', color: s.lumpSize === v ? '#FBF6EC' : '#35261B', bg: s.lumpSize === v ? '#B45E3A' : '#F4ECDF', pick: () => this.setState({ lumpSize: v }) })),

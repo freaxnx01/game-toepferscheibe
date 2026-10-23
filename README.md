@@ -22,6 +22,21 @@ Play it: <https://github.freaxnx01.ch/game-toepferscheibe/>
 - **Klang an/aus** (off by default) — soft motor hum while the wheel turns, plus a clay rub
   sound that follows how fast your finger moves
 
+## Datenschutz / Privacy
+
+**Deutsch.** Dieses Spiel zählt Besuche und Spielstarts mit **Umami**, selbst gehostet auf
+einem Server in **Deutschland** (`stats.freaxnx01.ch`). Es werden keine Cookies gesetzt und
+keine personenbezogenen Daten gespeichert. Die IP-Adresse wird nicht gespeichert, sondern
+nur kurzzeitig für die Bestimmung von Land und Region verwendet. Die Galerie bleibt im
+Browser (`localStorage`) und wird nicht übertragen. Wird das Skript blockiert (z. B. durch
+einen Adblocker), läuft das Spiel unverändert weiter.
+
+**English.** This game counts visits and game starts with **Umami**, self-hosted on a server
+in **Germany** (`stats.freaxnx01.ch`). No cookies are set and no personal data is stored. The
+IP address is not stored; it is used only transiently to look up country and region. The
+gallery stays in the browser (`localStorage`) and is never sent. If the script is blocked
+(e.g. by an ad blocker), the game runs exactly as before.
+
 ## Stack
 
 Buildless static page. `index.html` is a Claude Design (`dc`) document hydrated
