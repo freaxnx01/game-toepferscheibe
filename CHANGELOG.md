@@ -4,6 +4,12 @@ All notable changes to this project are documented here, following
 [Keep a Changelog](https://keepachangelog.com) and
 [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Added
+
+- Nasser Glanz: Der Ton glänzt beim Formen stellenweise nass und trocknet in einigen Sekunden ab (#7).
+
 ## [0.2.0] - 2026-10-23
 
 ### Added
