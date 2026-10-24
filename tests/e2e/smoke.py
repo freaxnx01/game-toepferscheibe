@@ -492,7 +492,53 @@ def analytics(b, url):
     assert not errs, errs[:2]
 
 
-FLOWS = [wet_shine, analytics, portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
+SHOT = '/tmp/claude-1000/-home-freax-repos-github-freaxnx01-public-game-toepferscheibe--worktrees-init/8695190f-79b8-49a3-ae5d-9f9d8d9ca048/scratchpad/view.png'
+VIEW = 'In 3D anschauen'
+BACKG = '← Zurück zur Galerie'
+
+
+def gallery_view(b, url):
+    import hashlib
+    page = new_page(b, url)
+    errs = []; page.on('pageerror', lambda e: errs.append(str(e)))
+    new = page.evaluate("() => ({id: Pottery.newId(), img: 'data:,', glaze: 'Kobalt', date: '2. Januar 2026', shape: Pottery.makeShape({profile: Pottery.defaultProfile(), height: 1})})")
+    page.evaluate('([k, v]) => localStorage.setItem(k, v)', [KEY, json.dumps([{'img': 'data:,', 'glaze': 'Honig', 'date': '1. Januar 2026'}, new])])
+    page.reload(wait_until='domcontentloaded')
+    click(page, 'Ton auf die Scheibe legen')
+    click(page, '▲ Höher ziehen')
+    click(page, '⏸ Scheibe anhalten')
+    page.wait_for_timeout(500)
+    h0 = hashlib.md5(page.locator('canvas').first.screenshot()).hexdigest()
+    click(page, 'Galerie (2)', exact=False); wait_text(page, 'Meine Werke')
+    assert page.get_by_role('button', name=VIEW, exact=True).count() == 1, 'exactly the new card needs a 3D button'
+    badge = page.get_by_role('button', name=VIEW, exact=True).get_by_text(VIEW).first.bounding_box()
+    assert badge and badge['height'] >= 20, f'badge too small: {badge}'
+    before = gallery(page)
+    page.get_by_role('button', name=VIEW, exact=True).click()
+    page.get_by_role('heading', name='Kobalt').wait_for(state='visible')
+    assert page.get_by_role('button', name=BACKG, exact=True).is_visible()
+    assert page.locator('canvas').first.is_visible(), 'canvas hidden in view'
+    page.wait_for_timeout(800)
+    Path(SHOT).parent.mkdir(parents=True, exist_ok=True); page.locator('canvas').first.screenshot(path=SHOT)
+    drag_pot(page)
+    assert gallery(page) == before, 'drag changed the gallery'
+    click(page, BACKG); wait_text(page, 'Meine Werke')
+    assert page.get_by_role('button', name=BACK).count() == 1, 'back to my piece missing after view'
+    page.get_by_role('button', name=VIEW, exact=True).click()
+    page.get_by_role('heading', name='Kobalt').wait_for(state='visible')
+    click(page, BACKG); click(page, BACK)
+    wait_text(page, 'An der Scheibe'); page.wait_for_timeout(500)
+    h1 = hashlib.md5(page.locator('canvas').first.screenshot()).hexdigest()
+    assert h0 == h1, 'work piece changed by viewing'
+    click(page, 'Galerie (2)', exact=False)
+    page.get_by_role('button', name=VIEW, exact=True).click()
+    page.get_by_role('heading', name='Kobalt').wait_for(state='visible')
+    click(page, 'Weiter töpfern'); wait_text(page, 'An der Scheibe')
+    assert page.get_by_role('button', name='Fertig – Glasieren →').is_visible()
+    assert not errs, errs[:2]
+
+
+FLOWS = [wet_shine, analytics, portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save, gallery_view]
 
 
 def main():
