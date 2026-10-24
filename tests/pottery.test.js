@@ -210,3 +210,17 @@ test('outlineRings maps outline points to rings', () => {
     assert.equal(r[P.RINGS], P.RINGS - 1);
   }
 });
+
+test('needsHomeHint', () => {
+  const IPAD = 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+  const MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
+  const CRIOS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/120.0 Mobile/15E148 Safari/604.1';
+  const CHROME = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
+  assert.equal(P.needsHomeHint({ ua: IPAD, maxTouchPoints: 5 }), true);
+  assert.equal(P.needsHomeHint({ ua: MAC, maxTouchPoints: 5 }), true);
+  assert.equal(P.needsHomeHint({ ua: MAC, maxTouchPoints: 0 }), false);
+  assert.equal(P.needsHomeHint({ ua: CRIOS, maxTouchPoints: 5 }), false);
+  assert.equal(P.needsHomeHint({ ua: IPAD, maxTouchPoints: 5, standalone: true }), false);
+  assert.equal(P.needsHomeHint({ ua: IPAD, maxTouchPoints: 5, displayStandalone: true }), false);
+  assert.equal(P.needsHomeHint({ ua: CHROME, maxTouchPoints: 0 }), false);
+});

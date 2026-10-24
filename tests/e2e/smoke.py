@@ -25,8 +25,8 @@ def start_server():
 CTX = []
 
 
-def new_page(browser, url, seed=None, init=None):
-    ctx = browser.new_context(viewport={'width': 1180, 'height': 820}); CTX.append(ctx)
+def new_page(browser, url, seed=None, init=None, **ctx_kw):
+    ctx = browser.new_context(viewport={'width': 1180, 'height': 820}, **ctx_kw); CTX.append(ctx)
     ctx.route('https://stats.freaxnx01.ch/**', lambda r: r.abort())
     if init: ctx.add_init_script(init)
     page = ctx.new_page()
@@ -543,7 +543,22 @@ def gallery_view(b, url):
     assert not errs, errs[:2]
 
 
-FLOWS = [wet_shine, analytics, portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save, gallery_view]
+def home_hint(b, url):
+    IPAD = 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+    d = new_page(b, url); d.wait_for_timeout(500)
+    assert d.get_by_text('Tipp:', exact=False).count() == 0, 'desktop must not show the tip'
+    page = new_page(b, url, user_agent=IPAD, has_touch=True, init="Object.defineProperty(navigator, 'maxTouchPoints', {get: () => 5})")
+    wait_text(page, 'Tipp:')
+    btn = page.get_by_role('button', name='Verstanden', exact=True)
+    assert btn.bounding_box()['height'] >= 64, 'Verstanden too small'
+    btn.click()
+    page.get_by_text('Tipp:', exact=False).wait_for(state='hidden')
+    page.reload(wait_until='domcontentloaded'); wait_text(page, 'Schön, dass Sie da sind')
+    page.wait_for_timeout(500)
+    assert page.get_by_text('Tipp:', exact=False).count() == 0, 'tip back after reload'
+
+
+FLOWS = [wet_shine, analytics, portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save, gallery_view, home_hint]
 
 
 def main():
