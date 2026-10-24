@@ -138,17 +138,29 @@ def back_from_wheel(b, url):
 
 def back_during_firing(b, url):
     page = new_page(b, url)
+    errs = []; page.on('pageerror', lambda e: errs.append(str(e)))
+    seed = page.evaluate("() => [{id: Pottery.newId(), img: 'data:,', glaze: 'Kobalt', date: '2. Januar 2026', shape: Pottery.makeShape({profile: Pottery.defaultProfile(), height: 1})}]")
+    page.evaluate('([k, v]) => localStorage.setItem(k, v)', [KEY, json.dumps(seed)]); page.reload(wait_until='domcontentloaded')
     page.set_viewport_size({'width': 640, 'height': 460})
     page.set_default_timeout(300000)  # software GL: the visible firing canvas can starve the page for minutes
     click(page, 'Ton auf die Scheibe legen')
     click(page, 'Fertig – Glasieren →')
     click(page, 'In den Ofen →')
-    click(page, 'Galerie (0)', exact=False)
+    click(page, 'Galerie (1)', exact=False)
     wait_text(page, 'Meine Werke')
     page.wait_for_timeout(8000)
     assert page.get_by_role('heading', name='Meine Werke').count() == 1, 'left the gallery on its own'
     page.get_by_role('button', name=BACK).first.click(no_wait_after=True)  # the post-click wait starves on the software-GL canvas
     wait_text(page, 'Stück herausnehmen →')
+    # view round trip from firing: header Galerie -> 3D -> back to gallery -> back to my piece
+    click(page, 'Galerie (1)', exact=False); wait_text(page, 'Meine Werke')
+    page.get_by_role('button', name=VIEW, exact=True).click(no_wait_after=True)
+    page.get_by_role('heading', name='Kobalt').wait_for(state='visible')
+    page.get_by_role('button', name=BACKG, exact=True).click(no_wait_after=True); wait_text(page, 'Meine Werke')
+    page.get_by_role('button', name=BACK).first.click(no_wait_after=True)
+    wait_text(page, 'Stück herausnehmen →')
+    assert page.get_by_text('Der Ofen heizt langsam auf.', exact=False).count() == 1, 'firing panel gone after view round trip'
+    assert not errs, errs[:2]
     for t in ('Der Ofen heizt langsam auf.', 'Der Ofen kühlt ab.'): assert page.get_by_text(t, exact=False).count() == 1, f'step missing: {t}'
     assert page.get_by_text('Fertig gebrannt').count() == 0, 'auto-advanced to done without the button'
     assert page.get_by_text('✓').count() == 2, 'expected two done marks'
@@ -517,6 +529,8 @@ def gallery_view(b, url):
     page.get_by_role('button', name=VIEW, exact=True).click()
     page.get_by_role('heading', name='Kobalt').wait_for(state='visible')
     assert page.get_by_role('button', name=BACKG, exact=True).is_visible()
+    page.wait_for_timeout(300)
+    bb = page.get_by_role('button', name=BACKG, exact=True).bounding_box(); assert bb and bb['y'] >= 0 and bb['y'] + bb['height'] <= 820, f'back button below the fold: {bb}'
     assert page.locator('canvas').first.is_visible(), 'canvas hidden in view'
     page.wait_for_timeout(800)
     if SHOT_DIR:

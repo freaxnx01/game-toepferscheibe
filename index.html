@@ -171,7 +171,7 @@
           <sc-if value="{{ viewCanEdit }}" hint-placeholder-val="{{ true }}">
             <button onClick="{{ viewEdit }}" style="min-height:84px; font-size:28px; font-weight:700; color:#FBF6EC; background:#B45E3A; border:none; border-radius:18px; cursor:pointer; box-shadow:0 6px 0 #8A4428;" style-hover="background:#9B4D2E;" style-active="transform:translateY(4px); box-shadow:0 2px 0 #8A4428;">Weiter töpfern</button>
           </sc-if>
-          <button onClick="{{ closeViewBtn }}" style="min-height:64px; font-size:22px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">← Zurück zur Galerie</button>
+          <button data-viewback onClick="{{ closeViewBtn }}" style="min-height:64px; font-size:22px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">← Zurück zur Galerie</button>
         </div>
       </sc-if>
     </aside>
@@ -255,7 +255,6 @@ class Component extends DCLogic {
   pointers = new Map();
 
   componentDidMount() {
-    try { navigator.storage && navigator.storage.persist && navigator.storage.persist().catch(() => {}); } catch (e) {}
     const go = () => this.initThree();
     if (window.THREE) go(); else window.addEventListener('three-ready', go, { once: true });
     this.onResize = () => this.resize();
@@ -396,13 +395,13 @@ class Component extends DCLogic {
     this.viewShape = w.shape; this.pot.visible = false; this.viewPot.visible = true;
     this.pointers.clear(); this.shapeTarget = null;
     this.resetCamera();
-    this.setState({ screen: 'view', viewing: w }, () => this.setMotor(false));
+    this.setState({ screen: 'view', viewing: w }, () => { this.setMotor(false); requestAnimationFrame(() => { const b = document.querySelector('[data-viewback]'); if (b) b.scrollIntoView({ block: 'nearest' }); }); });
   }
   closeView() {
     const sv = this.viewSaved; this.viewShape = null; this.pointers.clear(); this.pinchDist = 0;
     this.viewPot.visible = false; this.viewPot.geometry.dispose(); this.viewPot.geometry = new window.THREE.BufferGeometry(); this.pot.visible = true;
     if (sv) { this.cam = sv.cam; this.group.rotation.y = sv.rot; }
-    this.updateCamera();
+    this.updateCamera(); this.viewSaved = null;
   }
   syncWet() {
     const a = this.pot && this.pot.geometry.attributes.wet; if (!a) return;
@@ -616,6 +615,7 @@ class Component extends DCLogic {
       toggleSpin: () => { if (s.tool) this.spinBeforeTool = !s.spinning; this.setState({ spinning: !s.spinning }, () => this.setMotor(this.state.spinning)); },
       toggleSound: () => this.setState({ sound: !s.sound }, () => { if (this.state.sound) this.startSound(); else this.stopSound(); }),
       saveToGallery: () => {
+        if (!this.persistAsked) { this.persistAsked = true; try { navigator.storage && navigator.storage.persist && navigator.storage.persist().catch(() => {}); } catch (e) {} }
         this.syncWheel(false); this.renderer.render(this.scene, this.camera);
         const c = this.renderer.domElement, size = Math.min(c.width, c.height), out = document.createElement('canvas'); out.width = out.height = 480;
         const ctx = out.getContext('2d'); ctx.fillStyle = '#E8DAC2'; ctx.fillRect(0, 0, 480, 480);
