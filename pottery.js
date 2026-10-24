@@ -41,6 +41,30 @@
     pts.push([0.03, floorY], [0, floorY]);
     return pts;
   };
+  const outlineRings = (profile, height) => {
+    const out = [0];
+    for (let i = 0; i < RINGS; i++) out.push(i);
+    const floorY = 0.14, h = 2 * height;
+    for (let i = RINGS - 1; i >= 0; i--) { const y = (i / (RINGS - 1)) * h; if (y < floorY + 0.05) break; out.push(i); }
+    out.push(0, 0);
+    return out;
+  };
+  const WET_DRY_MS = 6500, WET_RATE = 0.004;
+  const wetStep = (wet, idx, dtMs) => {
+    if (!Number.isFinite(dtMs) || dtMs <= 0) return false;
+    let changed = false;
+    const dry = dtMs / WET_DRY_MS;
+    for (let i = 0; i < wet.length; i++) if (wet[i] > 0) { wet[i] = Math.max(0, wet[i] - dry); changed = true; }
+    if (Number.isInteger(idx) && idx >= 0 && idx < wet.length) {
+      for (const [k, f] of [[0, 1], [1, 0.6], [2, 0.25]]) for (const j of k ? [idx - k, idx + k] : [idx]) {
+        if (j < 0 || j >= wet.length) continue;
+        const v = Math.min(1, wet[j] + dtMs * WET_RATE * f);
+        if (v !== wet[j]) { wet[j] = v; changed = true; }
+      }
+    }
+    return changed;
+  };
+  const wetRoughness = (w) => 0.95 - 0.57 * Math.min(1, Math.max(0, w));
   const buildMesh = (shape, segments = 72) => {
     const pts = outline(shape.profile, shape.height), n = pts.length, H = 2 * shape.height, band = 0.35, y0 = H - band;
     const positions = new Float32Array((segments + 1) * n * 3), uvs = new Float32Array((segments + 1) * n * 2), indices = [];
@@ -65,7 +89,7 @@
     return max;
   };
   const fireSteps = (pct) => [{ text: 'Der Ofen heizt langsam auf. Die Glasur schmilzt und wird glänzend.', state: pct < 60 ? 'active' : 'done' }, { text: 'Der Ofen kühlt ab. Gleich können Sie Ihr Stück herausnehmen.', state: pct < 60 ? 'todo' : pct < 100 ? 'active' : 'done' }];
-  const api = { fireSteps, FLOW_TAU, flowFactor, flowStep, CORNERS, NOTCH_DEPTH, NOTCH_HALF_WIDTH, NOTCH_MIN_GAP, MAX_NOTCHES, notchBlock, cornerFactor, rimDrop, addNotch, angleOf, outline, buildMesh, MOTOR_GAIN, rubGain, RINGS, MINR, MAXR, HMIN, HMAX, MAX_WORKS, defaultProfile, lumpShape, newId, makeShape, canEdit, upsertEntry };
+  const api = { WET_DRY_MS, WET_RATE, wetStep, wetRoughness, outlineRings, fireSteps, FLOW_TAU, flowFactor, flowStep, CORNERS, NOTCH_DEPTH, NOTCH_HALF_WIDTH, NOTCH_MIN_GAP, MAX_NOTCHES, notchBlock, cornerFactor, rimDrop, addNotch, angleOf, outline, buildMesh, MOTOR_GAIN, rubGain, RINGS, MINR, MAXR, HMIN, HMAX, MAX_WORKS, defaultProfile, lumpShape, newId, makeShape, canEdit, upsertEntry };
   if (typeof window !== 'undefined') window.Pottery = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();

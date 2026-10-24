@@ -260,6 +260,12 @@ class Component extends DCLogic {
     const floor = new THREE.Mesh(new THREE.CircleGeometry(6, 48), new THREE.ShadowMaterial({ opacity: 0.25 }));
     floor.rotation.x = -Math.PI / 2; floor.position.y = -0.18; floor.receiveShadow = true; s.add(floor);
     this.mat = new THREE.MeshStandardMaterial({ color: CLAY, roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
+    this.wet = new Array(RINGS).fill(0); this.wetShown = null;
+    // wet clay is shinier: per-vertex wetness lowers roughness (set up once, so the shader never needs a recompile)
+    this.mat.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float wet;\nvarying float vWet;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWet = wet;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vWet;').replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= mix(1.0, 0.84, vWet);').replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, roughnessFactor * (0.38 / 0.95), vWet);');
+    };
     this.pot = new THREE.Mesh(this.buildGeo(), this.mat); this.pot.castShadow = true; this.pot.receiveShadow = true; s.add(this.pot);
     this.wheel = wheel; this.rim = rim; this.group = new THREE.Group(); this.group.add(wheel, rim, this.pot); s.add(this.group);
     this.bindPointer(el);
@@ -328,12 +334,26 @@ class Component extends DCLogic {
   buildGeo() {
     const THREE = window.THREE, m = Pottery.buildMesh(this.currentShape()), g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(m.positions, 3)); g.setAttribute('uv', new THREE.BufferAttribute(m.uvs, 2)); g.setIndex(m.indices);
+    const rings = Pottery.outlineRings(this.profile, this.height), nn = rings.length, wa = new Float32Array(m.positions.length / 3);
+    for (let i = 0; i < wa.length; i++) wa[i] = this.wet[rings[i % nn]];
+    g.setAttribute('wet', new THREE.BufferAttribute(wa, 1)); this.wetRings = rings;
     g.computeVertexNormals();
     // seam at theta=0/2pi: average the duplicated vertices' normals so no crease shows
     const nr = g.attributes.normal, n = Pottery.outline(this.profile, this.height).length, last = (m.positions.length / 3) - n;
     for (let j = 0; j < n; j++) { const x = nr.getX(j) + nr.getX(last + j), y = nr.getY(j) + nr.getY(last + j), z = nr.getZ(j) + nr.getZ(last + j), l = Math.hypot(x, y, z) || 1; nr.setXYZ(j, x / l, y / l, z / l); nr.setXYZ(last + j, x / l, y / l, z / l); }
     return g;
   }
+  syncWet() {
+    const a = this.pot && this.pot.geometry.attributes.wet; if (!a) return;
+    const rings = this.wetRings, nn = rings.length;
+    for (let i = 0; i < a.count; i++) a.array[i] = this.wet[rings[i % nn]];
+    a.needsUpdate = true;
+  }
+  showWet() {
+    const el = this.mountRef.current; if (!el) return;
+    const v = Math.max(0, ...this.wet).toFixed(2); if (v !== this.wetShown) { this.wetShown = v; el.setAttribute('data-wet', v); }
+  }
+  dryAll() { this.wet.fill(0); this.syncWet(); this.showWet(); }
   refresh() { if (!this.pot) return; this.pot.geometry.dispose(); this.pot.geometry = this.buildGeo(); this.updateCamera(); }
   resize() {
     const el = this.mountRef.current; if (!el || !this.renderer) return;
@@ -348,7 +368,7 @@ class Component extends DCLogic {
     this.shapeTarget = null;
     const sh = w.shape;
     this.profile = sh.profile.slice(); this.height = sh.height; this.notches = (sh.notches || []).slice(); this.corners = sh.corners || 'rund'; this.lump = { ...DEFAULT_LUMP, ...(sh.lump || {}) };
-    this.editId = w.id; this.preferredGlaze = w.glaze; this.history = []; clearInterval(this.fireTimer); clearTimeout(this.notchTimer); this.resetMaterial(); this.refresh();
+    this.editId = w.id; this.preferredGlaze = w.glaze; this.history = []; clearInterval(this.fireTimer); clearTimeout(this.notchTimer); this.resetMaterial(); this.dryAll(); this.refresh();
     this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, notchMsg: null, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true));
   }
 
@@ -374,8 +394,13 @@ class Component extends DCLogic {
   }
   flowTick(dtMs) {
     const t = this.shapeTarget;
-    if (!t || this.mode !== 'shape' || !this.pointers.size || this.state.screen !== 'wheel' || this.state.pickingLump || this.state.tool) return;
-    const idx = Math.round((t.y / (2 * this.height)) * (RINGS - 1));
+    const shaping = t && this.mode === 'shape' && this.pointers.size && this.state.screen === 'wheel' && !this.state.pickingLump && !this.state.tool;
+    const idx = shaping ? Math.round((t.y / (2 * this.height)) * (RINGS - 1)) : null;
+    if (shaping || this.wet.some(v => v > 0)) {
+      if (Pottery.wetStep(this.wet, idx, dtMs)) this.syncWet();
+    }
+    this.showWet();
+    if (!shaping) return;
     if (Pottery.flowStep(this.profile, idx, t.r, Pottery.flowFactor(dtMs)) > 1e-4) this.refresh();
   }
   bindPointer(el) {
@@ -502,7 +527,7 @@ class Component extends DCLogic {
       glazeName: s.glaze ? s.glaze.name : '',
       glazes: GLAZES.map(g => ({ name: g.name, color: g.color, border: s.glaze && s.glaze.name === g.name ? '#B45E3A' : '#D9C9B2', pick: () => this.setGlaze(g) })),
       gallery: s.gallery.map((w, i) => ({ ...w, canEdit: Pottery.canEdit(w), edit: () => this.loadWork(w), thumbStyle: { width: '100%', aspectRatio: '1', backgroundColor: '#E2D2B9', backgroundImage: `url("${w.img}")`, backgroundSize: 'cover', backgroundPosition: 'center' }, remove: () => { const gallery = s.gallery.filter((_, j) => j !== i); localStorage.setItem(KEY, JSON.stringify(gallery)); this.setState({ gallery }); } })),
-      startNew: () => { try { window.gameAnalytics && window.gameAnalytics.track('game_start', { game: 'toepferscheibe' }); } catch (e) {} this.applyLump(s.lumpSize, s.lumpForm); this.history = []; this.editId = null; this.preferredGlaze = null; clearInterval(this.fireTimer); clearTimeout(this.notchTimer); this.resetMaterial(); this.refresh(); this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, notchMsg: null, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true)); },
+      startNew: () => { try { window.gameAnalytics && window.gameAnalytics.track('game_start', { game: 'toepferscheibe' }); } catch (e) {} this.applyLump(s.lumpSize, s.lumpForm); this.history = []; this.editId = null; this.preferredGlaze = null; clearInterval(this.fireTimer); clearTimeout(this.notchTimer); this.resetMaterial(); this.dryAll(); this.refresh(); this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, notchMsg: null, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true)); },
       goStart: () => this.setState({ screen: 'start', returnScreen: ['wheel', 'glaze', 'firing', 'done'].includes(s.screen) ? s.screen : s.returnScreen }, () => this.setMotor(false)),
       hasReturnStart: screen === 'start' && !!s.returnScreen,
       sizeOpts: [['klein', 'Klein'], ['mittel', 'Mittel'], ['gross', 'Gross']].map(([v, label]) => ({ label, border: s.lumpSize === v ? '#B45E3A' : '#B9A58A', color: s.lumpSize === v ? '#FBF6EC' : '#35261B', bg: s.lumpSize === v ? '#B45E3A' : '#F4ECDF', pick: () => this.setState({ lumpSize: v }) })),
@@ -517,13 +542,13 @@ class Component extends DCLogic {
       hasReturn: screen === 'gallery' && !!s.returnScreen,
       backToWork: () => this.setState({ screen: s.returnScreen, returnScreen: null }, () => this.setMotor(this.state.spinning)),
       resetView: () => this.resetCamera(),
-      goGlaze: () => { const g = !s.glaze && GLAZES.find(x => x.name === this.preferredGlaze); if (g) this.setGlaze(g); this.setState({ ...this.toolOff(), screen: 'glaze' }, () => this.setMotor(this.state.spinning)); },
+      goGlaze: () => { this.dryAll(); const g = !s.glaze && GLAZES.find(x => x.name === this.preferredGlaze); if (g) this.setGlaze(g); this.setState({ ...this.toolOff(), screen: 'glaze' }, () => this.setMotor(this.state.spinning)); },
       backToWheel: () => { this.resetMaterial(); this.setState({ screen: 'wheel', glaze: null }); },
       startFire: () => this.startFire(),
       randomShape: () => this.randomShape(),
       taller: () => this.changeHeight(0.08), shorter: () => this.changeHeight(-0.08),
-      undo: () => { const h = this.history.pop(); if (!h) return; this.shapeTarget = null; this.profile = h.p; this.height = h.h; this.notches = h.n; this.corners = h.c; this.lump = h.l; this.editId = h.e; this.preferredGlaze = h.g; this.refresh(); this.forceUpdate(); },
-      resetClay: () => { this.snapshot(); this.applyLump(s.lumpSize, s.lumpForm); this.editId = null; this.preferredGlaze = null; this.refresh(); this.setState({ pickingLump: false }); },
+      undo: () => { const h = this.history.pop(); if (!h) return; this.shapeTarget = null; this.profile = h.p; this.height = h.h; this.notches = h.n; this.corners = h.c; this.lump = h.l; this.editId = h.e; this.preferredGlaze = h.g; this.dryAll(); this.refresh(); this.forceUpdate(); },
+      resetClay: () => { this.snapshot(); this.applyLump(s.lumpSize, s.lumpForm); this.editId = null; this.preferredGlaze = null; this.dryAll(); this.refresh(); this.setState({ pickingLump: false }); },
       toggleSpin: () => { if (s.tool) this.spinBeforeTool = !s.spinning; this.setState({ spinning: !s.spinning }, () => this.setMotor(this.state.spinning)); },
       toggleSound: () => this.setState({ sound: !s.sound }, () => { if (this.state.sound) this.startSound(); else this.stopSound(); }),
       saveToGallery: () => {
