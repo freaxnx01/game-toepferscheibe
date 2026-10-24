@@ -492,7 +492,7 @@ def analytics(b, url):
     assert not errs, errs[:2]
 
 
-SHOT = '/tmp/claude-1000/-home-freax-repos-github-freaxnx01-public-game-toepferscheibe--worktrees-init/8695190f-79b8-49a3-ae5d-9f9d8d9ca048/scratchpad/view.png'
+SHOT_DIR = os.environ.get('E2E_SHOT_DIR')
 VIEW = 'In 3D anschauen'
 BACKG = '← Zurück zur Galerie'
 
@@ -519,7 +519,8 @@ def gallery_view(b, url):
     assert page.get_by_role('button', name=BACKG, exact=True).is_visible()
     assert page.locator('canvas').first.is_visible(), 'canvas hidden in view'
     page.wait_for_timeout(800)
-    Path(SHOT).parent.mkdir(parents=True, exist_ok=True); page.locator('canvas').first.screenshot(path=SHOT)
+    if SHOT_DIR:
+        Path(SHOT_DIR).mkdir(parents=True, exist_ok=True); page.locator('canvas').first.screenshot(path=str(Path(SHOT_DIR) / 'view.png'))
     drag_pot(page)
     assert gallery(page) == before, 'drag changed the gallery'
     click(page, BACKG); wait_text(page, 'Meine Werke')
@@ -531,6 +532,10 @@ def gallery_view(b, url):
     h1 = hashlib.md5(page.locator('canvas').first.screenshot()).hexdigest()
     assert h0 == h1, 'work piece changed by viewing'
     click(page, 'Galerie (2)', exact=False)
+    page.get_by_role('button', name=VIEW, exact=True).click()
+    page.get_by_role('heading', name='Kobalt').wait_for(state='visible')
+    click(page, 'Galerie (2)', exact=False); wait_text(page, 'Meine Werke')
+    assert page.get_by_role('button', name=BACK).count() == 1, 'back to my piece missing after header exit'
     page.get_by_role('button', name=VIEW, exact=True).click()
     page.get_by_role('heading', name='Kobalt').wait_for(state='visible')
     click(page, 'Weiter töpfern'); wait_text(page, 'An der Scheibe')

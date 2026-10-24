@@ -192,7 +192,7 @@
             </sc-if>
             <sc-if value="{{ w.canEdit }}" hint-placeholder-val="{{ false }}">
               <button onClick="{{ w.view }}" aria-label="In 3D anschauen" style="position:relative; display:block; padding:0; border:none; background:none; cursor:pointer; width:100%;">
-                <div style="{{ w.thumbStyle }}"></div>
+                <span style="{{ w.thumbStyle }}"></span>
                 <span style="position:absolute; left:0; right:0; bottom:0; min-height:28px; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:700; color:#FBF6EC; background:rgba(53,38,27,.78);">In 3D anschauen</span>
               </button>
             </sc-if>
@@ -386,7 +386,7 @@ class Component extends DCLogic {
     this.setState({ screen: 'view', viewing: w }, () => this.setMotor(false));
   }
   closeView() {
-    const sv = this.viewSaved; this.viewShape = null;
+    const sv = this.viewSaved; this.viewShape = null; this.pointers.clear(); this.pinchDist = 0;
     this.viewPot.visible = false; this.viewPot.geometry.dispose(); this.viewPot.geometry = new window.THREE.BufferGeometry(); this.pot.visible = true;
     if (sv) { this.cam = sv.cam; this.group.rotation.y = sv.rot; }
     this.updateCamera();
@@ -576,7 +576,7 @@ class Component extends DCLogic {
       takeOut: () => this.setState({ screen: 'done' }),
       glazeName: s.glaze ? s.glaze.name : '',
       glazes: GLAZES.map(g => ({ name: g.name, color: g.color, border: s.glaze && s.glaze.name === g.name ? '#B45E3A' : '#D9C9B2', pick: () => this.setGlaze(g) })),
-      gallery: s.gallery.map((w, i) => ({ ...w, canEdit: Pottery.canEdit(w), cantEdit: !Pottery.canEdit(w), view: () => this.openView(w), edit: () => this.loadWork(w), thumbStyle: { width: '100%', aspectRatio: '1', backgroundColor: '#E2D2B9', backgroundImage: `url("${w.img}")`, backgroundSize: 'cover', backgroundPosition: 'center' }, remove: () => { const gallery = s.gallery.filter((_, j) => j !== i); localStorage.setItem(KEY, JSON.stringify(gallery)); this.setState({ gallery }); } })),
+      gallery: s.gallery.map((w, i) => ({ ...w, canEdit: Pottery.canEdit(w), cantEdit: !Pottery.canEdit(w), view: () => this.openView(w), edit: () => this.loadWork(w), thumbStyle: { display: 'block', width: '100%', aspectRatio: '1', backgroundColor: '#E2D2B9', backgroundImage: `url("${w.img}")`, backgroundSize: 'cover', backgroundPosition: 'center' }, remove: () => { const gallery = s.gallery.filter((_, j) => j !== i); localStorage.setItem(KEY, JSON.stringify(gallery)); this.setState({ gallery }); } })),
       startNew: () => { try { window.gameAnalytics && window.gameAnalytics.track('game_start', { game: 'toepferscheibe' }); } catch (e) {} this.applyLump(s.lumpSize, s.lumpForm); this.history = []; this.editId = null; this.preferredGlaze = null; clearInterval(this.fireTimer); clearTimeout(this.notchTimer); this.resetMaterial(); this.dryAll(); this.refresh(); this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, notchMsg: null, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true)); },
       goStart: () => this.setState({ screen: 'start', returnScreen: ['wheel', 'glaze', 'firing', 'done'].includes(s.screen) ? s.screen : s.returnScreen }, () => this.setMotor(false)),
       hasReturnStart: screen === 'start' && !!s.returnScreen,
