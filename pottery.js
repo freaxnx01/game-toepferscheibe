@@ -3,8 +3,8 @@
   const RINGS = 28, MINR = 0.15, MAXR = 1.6, HMIN = 0.35, HMAX = 1.6, MAX_WORKS = 30;
   const defaultProfile = () => Array.from({ length: RINGS }, (_, i) => 0.95 - 0.35 * (i / (RINGS - 1)));
   const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  const makeShape = ({ profile, height, notches = [], corners = 'rund', lump = { size: 'mittel', form: 'kegel' } }) =>
-    ({ version: 1, profile: [...profile], height, notches: [...notches], corners, lump: { ...lump } });
+  const makeShape = ({ profile, height, notches = [], corners = 'rund', lump = { size: 'mittel', form: 'kegel' }, wall = 0.13, floor = 0.14 }) =>
+    ({ version: 1, profile: [...profile], height, notches: [...notches], corners, lump: { ...lump }, wall, floor });
   const canEdit = (e) => !!(e && e.id && e.shape && e.shape.version >= 1 && e.shape.profile && e.shape.profile.length === RINGS);
   const upsertEntry = (gallery, entry, editId) => {
     const i = editId ? gallery.findIndex((e) => e.id === editId) : -1;
@@ -33,21 +33,35 @@
   };
   const addNotch = (notches, a) => notchBlock(notches, a) ? [...notches] : [...notches, ((a % TAU) + TAU) % TAU];
   const angleOf = (x, z) => ((Math.atan2(x, z) % TAU) + TAU) % TAU;
-  const outline = (profile, height) => {
+  const WALL_DEFAULT = 0.13, FLOOR_DEFAULT = 0.14, WALL_MIN = 0.08, WALL_MAX = 1.2, FLOOR_MIN = 0.08, HOLE_THUMB = 0.15, PRESS_MARGIN = 0.1;
+  const outline = (profile, height, wall = WALL_DEFAULT, floor = FLOOR_DEFAULT) => {
     const pts = [[0, 0]];
     for (let i = 0; i < RINGS; i++) pts.push([profile[i], (i / (RINGS - 1)) * 2 * height]);
-    const wall = 0.13, floorY = 0.14, h = 2 * height;
+    const h = 2 * height;
+    if (floor === null) { pts.push([0, h]); return pts; }
+    const floorY = Math.min(floor, h - 0.2);
     for (let i = RINGS - 1; i >= 0; i--) { const y = (i / (RINGS - 1)) * h; if (y < floorY + 0.05) break; pts.push([Math.max(profile[i] - wall, 0.03), y]); }
     pts.push([0.03, floorY], [0, floorY]);
     return pts;
   };
-  const outlineRings = (profile, height) => {
+  const outlineRings = (profile, height, wall = WALL_DEFAULT, floor = FLOOR_DEFAULT) => {
     const out = [0];
     for (let i = 0; i < RINGS; i++) out.push(i);
-    const floorY = 0.14, h = 2 * height;
+    const h = 2 * height;
+    if (floor === null) { out.push(RINGS - 1); return out; }
+    const floorY = Math.min(floor, h - 0.2);
     for (let i = RINGS - 1; i >= 0; i--) { const y = (i / (RINGS - 1)) * h; if (y < floorY + 0.05) break; out.push(i); }
     out.push(0, 0);
     return out;
+  };
+  const wallFor = (profile, holeR) => Math.min(WALL_MAX, Math.max(WALL_MIN, profile[RINGS - 1] - holeR));
+  const holeFor = (profile, wall) => Math.max(0.03, profile[RINGS - 1] - wall);
+  const hollowStep = ({ floor, holeR }, profile, height, r, f) => {
+    if (floor === null || r <= (holeR ?? 0) + PRESS_MARGIN) {
+      const fl = floor === null ? 2 * height : floor;
+      return { floor: fl + (FLOOR_MIN - fl) * f, holeR: holeR ?? HOLE_THUMB };
+    }
+    return { floor, holeR: Math.max(holeR, holeR + (Math.min(r, profile[RINGS - 1] - WALL_MIN) - holeR) * f) };
   };
   const WET_DRY_MS = 6500, WET_RATE = 0.004;
   const wetStep = (wet, idx, dtMs) => {
@@ -66,7 +80,7 @@
   };
   const wetRoughness = (w) => 0.95 - 0.57 * Math.min(1, Math.max(0, w));
   const buildMesh = (shape, segments = 72) => {
-    const pts = outline(shape.profile, shape.height), n = pts.length, H = 2 * shape.height, band = 0.35, y0 = H - band;
+    const pts = outline(shape.profile, shape.height, shape.wall ?? WALL_DEFAULT, shape.floor === undefined ? FLOOR_DEFAULT : shape.floor), n = pts.length, H = 2 * shape.height, band = 0.35, y0 = H - band;
     const positions = new Float32Array((segments + 1) * n * 3), uvs = new Float32Array((segments + 1) * n * 2), indices = [];
     for (let i = 0; i <= segments; i++) {
       const th = TAU * i / segments, sn = Math.sin(th), cs = Math.cos(th), k = cornerFactor(shape.corners, th), drop = rimDrop(shape.notches, th);
@@ -94,7 +108,7 @@
     const safari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
     return ios && safari && standalone !== true && displayStandalone !== true;
   };
-  const api = { WET_DRY_MS, WET_RATE, wetStep, wetRoughness, outlineRings, fireSteps, FLOW_TAU, flowFactor, flowStep, CORNERS, NOTCH_DEPTH, NOTCH_HALF_WIDTH, NOTCH_MIN_GAP, MAX_NOTCHES, notchBlock, cornerFactor, rimDrop, addNotch, angleOf, outline, buildMesh, MOTOR_GAIN, rubGain, RINGS, MINR, MAXR, HMIN, HMAX, MAX_WORKS, defaultProfile, lumpShape, newId, makeShape, canEdit, upsertEntry, needsHomeHint };
+  const api = { WALL_DEFAULT, FLOOR_DEFAULT, WALL_MIN, WALL_MAX, FLOOR_MIN, HOLE_THUMB, PRESS_MARGIN, wallFor, holeFor, hollowStep, WET_DRY_MS, WET_RATE, wetStep, wetRoughness, outlineRings, fireSteps, FLOW_TAU, flowFactor, flowStep, CORNERS, NOTCH_DEPTH, NOTCH_HALF_WIDTH, NOTCH_MIN_GAP, MAX_NOTCHES, notchBlock, cornerFactor, rimDrop, addNotch, angleOf, outline, buildMesh, MOTOR_GAIN, rubGain, RINGS, MINR, MAXR, HMIN, HMAX, MAX_WORKS, defaultProfile, lumpShape, newId, makeShape, canEdit, upsertEntry, needsHomeHint };
   if (typeof window !== 'undefined') window.Pottery = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();

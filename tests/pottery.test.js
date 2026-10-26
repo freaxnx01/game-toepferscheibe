@@ -224,3 +224,102 @@ test('needsHomeHint', () => {
   assert.equal(P.needsHomeHint({ ua: IPAD, maxTouchPoints: 5, displayStandalone: true }), false);
   assert.equal(P.needsHomeHint({ ua: CHROME, maxTouchPoints: 0 }), false);
 });
+
+// --- Aushöhlen (#8): wall/floor thickness and hollowing math ---
+const oldOutline = (profile, height) => {
+  const pts = [[0, 0]];
+  for (let i = 0; i < 28; i++) pts.push([profile[i], (i / 27) * 2 * height]);
+  const wall = 0.13, floorY = 0.14, h = 2 * height;
+  for (let i = 27; i >= 0; i--) { const y = (i / 27) * h; if (y < floorY + 0.05) break; pts.push([Math.max(profile[i] - wall, 0.03), y]); }
+  pts.push([0.03, floorY], [0, floorY]);
+  return pts;
+};
+const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, `${a} !~ ${b}`);
+
+test('outline defaults unchanged', () => {
+  const p = P.defaultProfile();
+  for (const h of [1, 0.35]) {
+    assert.deepEqual(P.outline(p, h), oldOutline(p, h));
+    assert.deepEqual(P.outline(p, h, 0.13, 0.14), oldOutline(p, h));
+  }
+});
+
+test('outline custom wall/floor', () => {
+  const p = P.defaultProfile(), o = P.outline(p, 1, 0.3, 0.5);
+  const inner = o.slice(P.RINGS + 1, -2);
+  assert.ok(inner.length > 0);
+  inner.forEach(([r], k) => near(r, Math.max(p[P.RINGS - 1 - k] - 0.3, 0.03)));
+  near(o[o.length - 1][1], 0.5);
+  near(o[o.length - 2][1], 0.5);
+});
+
+test('outline floor clamped', () => {
+  const o = P.outline(P.defaultProfile(), 0.4, 0.13, 0.7);
+  near(o[o.length - 1][1], 0.6);
+});
+
+test('outline solid', () => {
+  const p = P.defaultProfile(), o = P.outline(p, 1, 0.13, null);
+  assert.equal(o.length, P.RINGS + 2);
+  assert.deepEqual(o[o.length - 1], [0, 2]);
+  assert.deepEqual(o[0], [0, 0]);
+});
+
+test('outlineRings mirrors outline', () => {
+  const p = P.defaultProfile();
+  for (const [h, w, f] of [[1, undefined, undefined], [1, 0.3, 0.5], [0.4, 0.13, 0.7], [1, 0.13, null]]) {
+    const r = P.outlineRings(p, h, w, f);
+    assert.equal(r.length, P.outline(p, h, w, f).length);
+    if (f === null) assert.equal(r[r.length - 1], P.RINGS - 1);
+  }
+});
+
+test('buildMesh solid vs default', () => {
+  const p = P.defaultProfile(), seg = 12;
+  const a = P.buildMesh(P.makeShape({ profile: p, height: 1 }), seg);
+  const b = P.buildMesh({ ...P.makeShape({ profile: p, height: 1 }), floor: null }, seg);
+  const c = P.buildMesh({ profile: p, height: 1, notches: [], corners: 'rund' }, seg);
+  assert.equal(a.positions.length, (seg + 1) * P.outline(p, 1).length * 3);
+  assert.equal(b.positions.length, (seg + 1) * (P.RINGS + 2) * 3);
+  assert.equal(c.positions.length, a.positions.length);
+  assert.ok([...b.positions].every(Number.isFinite));
+});
+
+test('makeShape wall/floor', () => {
+  const p = P.defaultProfile();
+  const s = P.makeShape({ profile: p, height: 1, wall: 0.4, floor: 0.9 });
+  assert.equal(s.wall, 0.4); assert.equal(s.floor, 0.9);
+  const d = P.makeShape({ profile: p, height: 1 });
+  assert.equal(d.wall, 0.13); assert.equal(d.floor, 0.14); assert.equal(d.version, 1);
+  assert.equal(P.makeShape({ profile: p, height: 1, floor: null }).floor, null);
+});
+
+test('wallFor/holeFor', () => {
+  const p = P.defaultProfile().map(() => 1);
+  near(P.holeFor(p, P.wallFor(p, 0.6)), 0.6);
+  near(P.wallFor(p, 0.99), P.WALL_MIN);
+  near(P.wallFor(p, -0.5), P.WALL_MAX);
+  near(P.holeFor(p, 5), 0.03);
+});
+
+test('hollowStep press', () => {
+  const p = P.defaultProfile();
+  let s = P.hollowStep({ floor: null, holeR: null }, p, 1, 0, 0.5);
+  near(s.floor, 2 + (0.08 - 2) * 0.5); near(s.holeR, 0.15);
+  for (let i = 0; i < 60; i++) s = P.hollowStep(s, p, 1, 0, 0.5);
+  assert.ok(s.floor >= P.FLOOR_MIN && s.floor < 0.081);
+  const t = { floor: 0.5, holeR: 0.15 };
+  assert.deepEqual(P.hollowStep(t, p, 1, 0, 0), t);
+  assert.notEqual(P.hollowStep(t, p, 1, 0, 0), t);
+  assert.equal(P.hollowStep({ floor: null, holeR: null }, p, 1, 0, 0).floor, 2);
+});
+
+test('hollowStep pull', () => {
+  const p = P.defaultProfile().map(() => 1);
+  let s = P.hollowStep({ floor: 0.5, holeR: 0.15 }, p, 1, 0.6, 0.5);
+  near(s.holeR, 0.375); assert.equal(s.floor, 0.5);
+  for (let i = 0; i < 80; i++) s = P.hollowStep(s, p, 1, 5, 0.5);
+  near(P.wallFor(p, s.holeR), P.WALL_MIN);
+  const keep = P.hollowStep(s, p, 1, 0.5, 0.5);
+  assert.equal(keep.holeR, s.holeR);
+});
