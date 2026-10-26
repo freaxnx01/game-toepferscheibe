@@ -64,8 +64,23 @@ def glaze_fire_save(page, glaze=None):
     wait_text(page, 'Entfernen')
 
 
-def make_work(page, glaze='Kobalt'):
+def start_clay(page):
     click(page, 'Ton auf die Scheibe legen')
+    at_hollow(page)
+    click(page, 'Für mich aushöhlen')
+    wait_text(page, 'An der Scheibe')
+
+
+def at_hollow(page):
+    page.locator('header').get_by_text('Aushöhlen', exact=True).wait_for(state='visible')
+
+
+def hollow_attrs(page, floor, wall):
+    page.wait_for_function("([f, w]) => { const e = document.querySelector('[data-floor]'); return !!e && e.getAttribute('data-floor') === f && e.getAttribute('data-wall') === w; }", arg=[floor, wall])
+
+
+def make_work(page, glaze='Kobalt'):
+    start_clay(page)
     glaze_fire_save(page, glaze)
 
 
@@ -95,7 +110,7 @@ def old_entry(b, url):
     new = page.evaluate("() => ({id: Pottery.newId(), img: 'data:,', glaze: 'Kobalt', date: '2. Januar 2026', shape: Pottery.makeShape({profile: Pottery.defaultProfile(), height: 1})})")
     page.evaluate('([k, v]) => localStorage.setItem(k, v)', [KEY, json.dumps([{'img': 'data:,', 'glaze': 'Honig', 'date': '1. Januar 2026'}, new])])
     page.reload(wait_until='domcontentloaded')
-    click(page, 'Ton auf die Scheibe legen')
+    start_clay(page)
     click(page, 'Galerie (2)', exact=False)
     wait_text(page, 'Honig')
     assert cards(page) == 2
@@ -114,7 +129,9 @@ def undo_keeps_link(b, url):
     wait_text(page, 'An der Scheibe')
     click(page, 'Neuer Tonklumpen')
     click(page, 'Ton auflegen')
+    at_hollow(page)
     click(page, '↶ Rückgängig')
+    click(page, 'Weiter zum Formen →')
     glaze_fire_save(page)
     assert cards(page) == 1 and len(gallery(page)) == 1, f'expected 1 card, got {cards(page)}/{len(gallery(page))}'
 
@@ -124,7 +141,7 @@ BACK = '← Zurück zu meinem Stück'
 
 def back_from_wheel(b, url):
     page = new_page(b, url)
-    click(page, 'Ton auf die Scheibe legen')
+    start_clay(page)
     click(page, '▲ Höher ziehen')
     click(page, 'Galerie (0)', exact=False)
     wait_text(page, 'Meine Werke')
@@ -143,7 +160,7 @@ def back_during_firing(b, url):
     page.evaluate('([k, v]) => localStorage.setItem(k, v)', [KEY, json.dumps(seed)]); page.reload(wait_until='domcontentloaded')
     page.set_viewport_size({'width': 640, 'height': 460})
     page.set_default_timeout(300000)  # software GL: the visible firing canvas can starve the page for minutes
-    click(page, 'Ton auf die Scheibe legen')
+    start_clay(page)
     click(page, 'Fertig – Glasieren →')
     click(page, 'In den Ofen →')
     click(page, 'Galerie (1)', exact=False)
@@ -180,7 +197,7 @@ def sound_drag(b, url):
     errs = []
     page.on('pageerror', lambda e: errs.append(str(e)))
     page.on('console', lambda m: m.type == 'error' and errs.append(m.text))
-    click(page, 'Ton auf die Scheibe legen')
+    start_clay(page)
     click(page, '🔇 Klang aus')
     wait_text(page, 'Klang an')
     box = page.locator('canvas').first.bounding_box()
@@ -198,7 +215,7 @@ def lump_choice(b, url):
     errs = []
     page.on('pageerror', lambda e: errs.append(str(e)))
     click(page, 'Gross'); click(page, 'Kugel')
-    click(page, 'Ton auf die Scheibe legen')
+    start_clay(page)
     wait_text(page, 'An der Scheibe')
     click(page, 'Neuer Tonklumpen')
     assert page.get_by_role('button', name='▲ Höher ziehen').count() == 0, 'shaping panel still visible while picking'
@@ -206,7 +223,11 @@ def lump_choice(b, url):
     assert b_gross == 'rgb(180, 94, 58)', f'current lump not preselected: {b_gross}'
     click(page, 'Klein')
     click(page, 'Ton auflegen')
+    at_hollow(page)
+    assert page.get_by_role('button', name='Neuer Tonklumpen').count() == 0 and page.get_by_role('button', name='▲ Höher ziehen').count() == 0, 'shaping buttons visible while hollowing'
+    click(page, 'Für mich aushöhlen')
     click(page, '▲ Höher ziehen')
+    click(page, '↶ Rückgängig')
     click(page, '↶ Rückgängig')
     click(page, '↶ Rückgängig')
     click(page, 'Neuer Tonklumpen')
@@ -251,7 +272,7 @@ def tools(b, url):
     page = new_page(b, url)
     errs = []
     page.on('pageerror', lambda e: errs.append(str(e)))
-    click(page, 'Ton auf die Scheibe legen')
+    start_clay(page)
     wait_text(page, 'An der Scheibe')
     base = page.evaluate("() => Pottery.lumpShape('mittel', 'kegel').profile")
     click(page, 'Neuer Tonklumpen'); drag_pot(page); click(page, 'Abbrechen')  # no shaping while the lump picker is open
@@ -312,10 +333,12 @@ def glaze_not_preselected(b, url):
     wait_text(page, 'An der Scheibe')
     click(page, 'Neuer Tonklumpen')
     click(page, 'Ton auflegen')
+    click(page, 'Für mich aushöhlen')
     click(page, 'Fertig – Glasieren →')
     sel = lambda: page.evaluate("() => [...document.querySelectorAll('button')].filter(b => b.textContent.includes('Kobalt') && getComputedStyle(b).borderTopColor === 'rgb(180, 94, 58)').length")
     assert sel() == 0, 'glaze preselected after Ton auflegen'
     click(page, '← Zurück zur Scheibe')
+    click(page, '↶ Rückgängig')
     click(page, '↶ Rückgängig')
     click(page, 'Fertig – Glasieren →')
     assert sel() == 1, 'undo did not restore preferred glaze'
@@ -337,7 +360,7 @@ def sluggish(b, url):
     page.context.add_init_script(VCLOCK); page.reload(wait_until='domcontentloaded')  # virtual clock: every frame is exactly 50 ms, independent of the slow software renderer
     errs = []
     page.on('pageerror', lambda e: errs.append(str(e)))
-    click(page, 'Ton auf die Scheibe legen')
+    start_clay(page)
     wait_text(page, 'An der Scheibe')
     base = page.evaluate("() => Pottery.lumpShape('mittel', 'kegel').profile")
     box = page.locator('canvas').first.bounding_box()
@@ -370,7 +393,7 @@ def wet_shine(b, url):
     page.context.add_init_script(VCLOCK); page.reload(wait_until='domcontentloaded')  # virtual clock: 50 ms per frame
     errs = []
     page.on('pageerror', lambda e: errs.append(str(e)))
-    click(page, 'Ton auf die Scheibe legen')
+    start_clay(page)
     wait_text(page, 'An der Scheibe')
     assert wet_max(page) == 0, 'wet at start'
     box = page.locator('canvas').first.bounding_box()
@@ -386,7 +409,7 @@ def wet_shine(b, url):
     page.mouse.move(box['x'] + 40, cy); frames(page, 10)
     page.mouse.up()
     assert wet_max(page) == 0, 'orbit drag wetted the clay'
-    for label, pre in (('undo', ['↶ Rückgängig']), ('reset', ['Neuer Tonklumpen', 'Ton auflegen'])):
+    for label, pre in (('undo', ['↶ Rückgängig']), ('reset', ['Neuer Tonklumpen', 'Ton auflegen', 'Für mich aushöhlen'])):
         page.mouse.move(cx, cy); page.mouse.down()
         page.mouse.move(cx + 2, cy - 2); frames(page, 4)
         assert wet_max(page) > 0, f'not wet before {label}'
@@ -400,7 +423,7 @@ def wet_shine(b, url):
     click(page, 'Fertig – Glasieren →')
     assert wet_max(page) == 0, 'wet on glaze screen'
     click(page, 'In den Ofen →'); click(page, 'Stück herausnehmen →')
-    click(page, 'Neues Stück beginnen'); click(page, 'Ton auf die Scheibe legen')
+    click(page, 'Neues Stück beginnen'); start_clay(page)
     wait_text(page, 'An der Scheibe')
     assert wet_max(page) == 0, 'wet after new piece'
     assert not errs, errs[:2]
@@ -408,7 +431,7 @@ def wet_shine(b, url):
 
 def spin_and_padding(b, url):
     page = new_page(b, url)
-    click(page, 'Ton auf die Scheibe legen')
+    start_clay(page)
     click(page, 'Werkzeug')
     click(page, '▶ Scheibe drehen')
     click(page, 'Formen')
@@ -422,7 +445,7 @@ def spin_and_padding(b, url):
 
 def notch_hint(b, url):
     page = new_page(b, url)
-    click(page, 'Ton auf die Scheibe legen'); wait_text(page, 'An der Scheibe')
+    start_clay(page); wait_text(page, 'An der Scheibe')
     click(page, 'Werkzeug'); wait_text(page, '▶ Scheibe drehen')
     x, y = rim_point(page, 0.0); page.mouse.click(x, y)
     page.mouse.click(x, y)  # exactly the same spot: the ray now passes through the cut-out
@@ -445,7 +468,7 @@ def wheel_px(page, src):
 def portrait_takeout_visible(b, url):
     page = new_page(b, url)
     page.set_viewport_size({'width': 800, 'height': 900}); page.set_default_timeout(300000)  # portrait iPad: sidebar wraps below the canvas
-    click(page, 'Ton auf die Scheibe legen'); click(page, 'Fertig – Glasieren →'); click(page, 'Kobalt'); click(page, 'In den Ofen →')
+    start_clay(page); click(page, 'Fertig – Glasieren →'); click(page, 'Kobalt'); click(page, 'In den Ofen →')
     page.evaluate('window.scrollTo(0, 0)')  # the click above scrolled the sidebar into view
     btn = page.get_by_role('button', name='Stück herausnehmen →'); btn.wait_for(state='visible')
     page.wait_for_timeout(1500)  # smooth scroll
@@ -459,7 +482,7 @@ def portrait_takeout_visible(b, url):
 def gallery_no_wheel(b, url):
     page = new_page(b, url)
     page.set_viewport_size({'width': 640, 'height': 460}); page.set_default_timeout(300000)
-    click(page, 'Ton auf die Scheibe legen')
+    start_clay(page)
     assert wheel_px(page, None) > 0, 'sanity: wheel visible at the wheel'
     click(page, 'Fertig – Glasieren →'); click(page, 'Kobalt'); click(page, 'In den Ofen →')
     wait_text(page, 'Stück herausnehmen →')
@@ -486,7 +509,7 @@ def analytics(b, url):
     assert ev() == [], ev()
     a = page.get_by_role('link', name='Datenschutz', exact=True)
     assert a.count() == 1 and a.get_attribute('href') == PRIVACY and a.get_attribute('target') == '_blank' and 'noopener' in a.get_attribute('rel'), 'privacy link'
-    click(page, 'Ton auf die Scheibe legen')
+    start_clay(page)
     assert ev() == [['game_start', {'game': 'toepferscheibe'}]], ev()
     glaze_fire_save(page, 'Kobalt')
     click(page, 'Weiter töpfern'); wait_text(page, 'An der Scheibe')
@@ -495,12 +518,12 @@ def analytics(b, url):
     wait_text(page, 'In die Galerie stellen'); click(page, 'Neues Stück beginnen')
     wait_text(page, 'Ton auf die Scheibe legen')
     assert len(ev()) == 1, ev()
-    click(page, 'Ton auf die Scheibe legen'); wait_text(page, 'An der Scheibe')
+    start_clay(page); wait_text(page, 'An der Scheibe')
     assert ev() == [['game_start', {'game': 'toepferscheibe'}]] * 2, ev()
     p2 = new_page(b, url, init="Object.defineProperty(window, 'gameAnalytics', {get: () => undefined, set: () => {}, configurable: true})")
     errs = []; p2.on('pageerror', lambda e: errs.append(str(e)))
     p2.reload(wait_until='domcontentloaded'); wait_text(p2, 'Ton auf die Scheibe legen')
-    click(p2, 'Ton auf die Scheibe legen'); wait_text(p2, 'An der Scheibe')
+    start_clay(p2); wait_text(p2, 'An der Scheibe')
     assert not errs, errs[:2]
 
 
@@ -516,7 +539,7 @@ def gallery_view(b, url):
     new = page.evaluate("() => ({id: Pottery.newId(), img: 'data:,', glaze: 'Kobalt', date: '2. Januar 2026', shape: Pottery.makeShape({profile: Pottery.defaultProfile(), height: 1})})")
     page.evaluate('([k, v]) => localStorage.setItem(k, v)', [KEY, json.dumps([{'img': 'data:,', 'glaze': 'Honig', 'date': '1. Januar 2026'}, new])])
     page.reload(wait_until='domcontentloaded')
-    click(page, 'Ton auf die Scheibe legen')
+    start_clay(page)
     click(page, '▲ Höher ziehen')
     click(page, '⏸ Scheibe anhalten')
     page.wait_for_timeout(500)
@@ -572,7 +595,53 @@ def home_hint(b, url):
     assert page.get_by_text('Tipp:', exact=False).count() == 0, 'tip back after reload'
 
 
-FLOWS = [wet_shine, analytics, portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save, gallery_view, home_hint]
+def hollow_steps(b, url):
+    page = new_page(b, url)
+    errs = []; page.on('pageerror', lambda e: errs.append(str(e)))
+    click(page, 'Ton auf die Scheibe legen')
+    at_hollow(page)
+    assert page.locator('header').get_by_text('Aushöhlen', exact=True).count() == 1, 'step label missing'
+    hollow_attrs(page, 'solid', '0.130')
+    assert page.get_by_role('button', name='Weiter zum Formen →').is_disabled(), 'Weiter must be disabled while solid'
+    for t in ('Neuer Tonklumpen', 'Fertig – Glasieren →', '🎲 Zufällige Form', '▲ Höher ziehen', 'Werkzeug'): assert page.get_by_role('button', name=t, exact=True).count() == 0, f'{t} visible while hollowing'
+    for t in ('Für mich aushöhlen', '↶ Rückgängig'): assert page.get_by_role('button', name=t, exact=True).count() == 1, f'{t} missing'
+    click(page, 'Für mich aushöhlen')
+    wait_text(page, 'An der Scheibe')
+    hollow_attrs(page, '0.140', '0.130')
+    click(page, '← Zurück zum Aushöhlen')
+    at_hollow(page)
+    hollow_attrs(page, '0.140', '0.130')
+    assert page.get_by_role('button', name='Weiter zum Formen →').is_enabled(), 'Weiter must be enabled with a hole'
+    click(page, 'Galerie (0)', exact=False); wait_text(page, 'Meine Werke')
+    click(page, BACK)
+    at_hollow(page)
+    click(page, 'Weiter zum Formen →'); wait_text(page, 'An der Scheibe')
+    glaze_fire_save(page, 'Kobalt')
+    click(page, 'Weiter töpfern'); wait_text(page, 'An der Scheibe')
+    hollow_attrs(page, '0.140', '0.130')
+    s = gallery(page)[0]['shape']
+    assert s['wall'] == 0.13 and s['floor'] == 0.14, (s.get('wall'), s.get('floor'))
+    assert not errs, errs[:2]
+
+
+def hollow_old_entry(b, url):
+    page = new_page(b, url)
+    errs = []; page.on('pageerror', lambda e: errs.append(str(e)))
+    new = page.evaluate("() => { const s = Pottery.makeShape({profile: Pottery.defaultProfile(), height: 1}); delete s.wall; delete s.floor; return {id: Pottery.newId(), img: 'data:,', glaze: 'Kobalt', date: '2. Januar 2026', shape: s}; }")
+    assert 'wall' not in new['shape'] and 'floor' not in new['shape']
+    page.evaluate('([k, v]) => localStorage.setItem(k, v)', [KEY, json.dumps([new])])
+    page.reload(wait_until='domcontentloaded')
+    click(page, 'Meine Werke ansehen'); wait_text(page, 'Meine Werke')
+    page.get_by_role('button', name=VIEW, exact=True).click()
+    page.get_by_role('heading', name='Kobalt').wait_for(state='visible')
+    page.wait_for_timeout(500)
+    click(page, BACKG); wait_text(page, 'Meine Werke')
+    click(page, 'Weiter töpfern'); wait_text(page, 'An der Scheibe')
+    hollow_attrs(page, '0.140', '0.130')
+    assert not errs, errs[:2]
+
+
+FLOWS = [hollow_steps, hollow_old_entry, wet_shine, analytics, portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save, gallery_view, home_hint]
 
 
 def main():
