@@ -305,22 +305,41 @@ test('wallFor/holeFor', () => {
 
 test('hollowStep press', () => {
   const p = P.defaultProfile();
-  let s = P.hollowStep({ floor: null, holeR: null }, p, 1, 0, 0.5);
-  near(s.floor, 2 + (0.08 - 2) * 0.5); near(s.holeR, 0.15);
+  let s = P.hollowStep({ floor: null, holeR: null, pull: false }, p, 1, 0, 0.5);
+  near(s.floor, 1.8 + (0.08 - 1.8) * 0.5); near(s.holeR, 0.15); assert.equal(s.pull, false);
   for (let i = 0; i < 60; i++) s = P.hollowStep(s, p, 1, 0, 0.5);
   assert.ok(s.floor >= P.FLOOR_MIN && s.floor < 0.081);
-  const t = { floor: 0.5, holeR: 0.15 };
+  const t = { floor: 0.5, holeR: 0.15, pull: false };
   assert.deepEqual(P.hollowStep(t, p, 1, 0, 0), t);
   assert.notEqual(P.hollowStep(t, p, 1, 0, 0), t);
-  assert.deepEqual(P.hollowStep({ floor: null, holeR: null }, p, 1, 0, 0), { floor: null, holeR: null });
+  assert.deepEqual(P.hollowStep({ floor: null, holeR: null, pull: false }, p, 1, 0, 0), { floor: null, holeR: null, pull: false });
+});
+
+test('hollowStep first press frame is visible at once', () => {
+  const p = P.defaultProfile();
+  const s = P.hollowStep({ floor: null, holeR: null, pull: false }, p, 1, 0, 0.01);
+  assert.ok(s.floor < 2 - 0.2, `floor ${s.floor} still hidden by the 2h-0.2 render clamp`);
 });
 
 test('hollowStep pull', () => {
   const p = P.defaultProfile().map(() => 1);
-  let s = P.hollowStep({ floor: 0.5, holeR: 0.15 }, p, 1, 0.6, 0.5);
-  near(s.holeR, 0.375); assert.equal(s.floor, 0.5);
+  let s = P.hollowStep({ floor: 0.5, holeR: 0.15, pull: false }, p, 1, 0.6, 0.5);
+  near(s.holeR, 0.375); assert.equal(s.floor, 0.5); assert.equal(s.pull, true);
   for (let i = 0; i < 80; i++) s = P.hollowStep(s, p, 1, 5, 0.5);
   near(P.wallFor(p, s.holeR), P.WALL_MIN);
   const keep = P.hollowStep(s, p, 1, 0.5, 0.5);
   assert.equal(keep.holeR, s.holeR);
+});
+
+test('hollowStep latched pull never presses', () => {
+  const p = P.defaultProfile().map(() => 1);
+  const latched = P.hollowStep({ floor: 0.5, holeR: 0.5, pull: true }, p, 1, 0.45, 0.5);
+  assert.equal(latched.floor, 0.5); assert.equal(latched.holeR, 0.5); assert.equal(latched.pull, true);
+  const grow = P.hollowStep({ floor: 0.5, holeR: 0.5, pull: true }, p, 1, 0.55, 0.5);
+  assert.equal(grow.floor, 0.5); near(grow.holeR, 0.525);
+  const free = P.hollowStep({ floor: 0.5, holeR: 0.5, pull: false }, p, 1, 0.55, 0.5);
+  assert.ok(free.floor < 0.5, 'unlatched stroke inside the margin presses');
+  assert.equal(free.pull, false);
+  const shrink = P.hollowStep({ floor: 0.5, holeR: 0.5, pull: true }, p, 1, 0.2, 0.5);
+  assert.equal(shrink.holeR, 0.5); assert.equal(shrink.floor, 0.5);
 });

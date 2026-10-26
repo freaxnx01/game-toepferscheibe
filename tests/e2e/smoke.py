@@ -264,7 +264,7 @@ def _project(page, P, h):
     T = (0, 0.9 * h, 0); d, phi = 5.4, 1.25
     C = (0, T[1] + d * math.cos(phi), d * math.sin(phi))
     f = [T[i] - C[i] for i in range(3)]; n = math.sqrt(sum(x * x for x in f)); f = [x / n for x in f]
-    rt = [f[2] * 0 - f[1] * 0, 0, 0]; rt = [-f[2], 0, f[0]]; n = math.hypot(rt[0], rt[2]); rt = [x / n for x in rt]  # right = f x up
+    rt = [-f[2], 0, f[0]]; n = math.hypot(rt[0], rt[2]); rt = [x / n for x in rt]  # right = f x up
     up = [rt[1] * f[2] - rt[2] * f[1], rt[2] * f[0] - rt[0] * f[2], rt[0] * f[1] - rt[1] * f[0]]
     v = [P[i] - C[i] for i in range(3)]; dep = sum(v[i] * f[i] for i in range(3))
     t = math.tan(math.radians(32) / 2)
@@ -612,6 +612,7 @@ def home_hint(b, url):
 
 def hollow_gesture(b, url):
     page = new_page(b, url)
+    page.context.add_init_script(VCLOCK); page.reload(wait_until='domcontentloaded')  # virtual clock: 50 ms per frame, so the slow renderer cannot hide a pull that turns into a press
     errs = []; page.on('pageerror', lambda e: errs.append(str(e)))
     click(page, 'Ton auf die Scheibe legen')
     at_hollow(page)
@@ -619,16 +620,17 @@ def hollow_gesture(b, url):
     attr = lambda n: page.evaluate("(n) => document.querySelector('[data-floor]').getAttribute(n)", n)
     tx, ty = top_center(page)
     page.mouse.move(tx, ty); page.mouse.down()
-    for i in range(25): page.mouse.move(tx + (i % 2), ty); page.wait_for_timeout(100)
+    for i in range(25): page.mouse.move(tx + (i % 2), ty); frames(page, 2)
     page.mouse.up()
     fl = attr('data-floor'); assert fl != 'solid' and float(fl) < 2 * h - 0.6, f'floor after press: {fl}'
     assert page.get_by_role('button', name='Weiter zum Formen →').is_enabled(), 'Weiter must be enabled after pressing'
     wall_press = attr('data-wall')
     import math
     rx, _ = rim_point(page, math.pi / 2)
-    page.mouse.move(tx, ty); page.mouse.down()
-    for i in range(1, 11): page.mouse.move(tx + (rx - tx) * i / 10, ty); page.wait_for_timeout(50)
-    for i in range(25): page.mouse.move(rx - (i % 2), ty); page.wait_for_timeout(100)
+    sx = tx + (rx - tx) * 0.4  # start outside the hole (r ~0.35 > holeR + margin): a pull stroke, not a press that drifts outward
+    page.mouse.move(sx, ty); page.mouse.down()
+    for i in range(1, 11): page.mouse.move(sx + (rx - sx) * i / 10, ty); frames(page, 1)
+    for i in range(25): page.mouse.move(rx - (i % 2), ty); frames(page, 2)
     page.mouse.up()
     wall_pull = attr('data-wall'); fl2 = attr('data-floor')
     assert float(wall_pull) < float(wall_press), (wall_press, wall_pull)
@@ -689,6 +691,22 @@ def hollow_old_entry(b, url):
     assert not errs, errs[:2]
 
 
+def hollow_solid_entry(b, url):
+    """A stored piece with floor null (solid) reopens in the Aushöhlen step, not at the wheel."""
+    page = new_page(b, url)
+    errs = []; page.on('pageerror', lambda e: errs.append(str(e)))
+    new = page.evaluate("() => { const s = Pottery.makeShape({profile: Pottery.defaultProfile(), height: 1, floor: null}); return {id: Pottery.newId(), img: 'data:,', glaze: 'Kobalt', date: '2. Januar 2026', shape: s}; }")
+    assert new['shape']['floor'] is None
+    page.evaluate('([k, v]) => localStorage.setItem(k, v)', [KEY, json.dumps([new])])
+    page.reload(wait_until='domcontentloaded')
+    click(page, 'Meine Werke ansehen'); wait_text(page, 'Meine Werke')
+    click(page, 'Weiter töpfern')
+    at_hollow(page)
+    hollow_attrs(page, 'solid', '0.130')
+    assert page.get_by_role('button', name='Weiter zum Formen →').is_disabled()
+    assert not errs, errs[:2]
+
+
 def undo_to_solid(b, url):
     page = new_page(b, url)
     errs = []; page.on('pageerror', lambda e: errs.append(str(e)))
@@ -701,7 +719,30 @@ def undo_to_solid(b, url):
     assert not errs, errs[:2]
 
 
-FLOWS = [hollow_gesture, undo_to_solid, hollow_steps, hollow_old_entry, wet_shine, analytics, portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save, gallery_view, home_hint]
+def undo_fresh_hole(b, url):
+    """Undo in the hollow step after shaping must not restore a hole radius that belongs to an older profile."""
+    import math
+    page = new_page(b, url)
+    page.context.add_init_script(VCLOCK); page.reload(wait_until='domcontentloaded')  # virtual clock: 50 ms per frame
+    errs = []; page.on('pageerror', lambda e: errs.append(str(e)))
+    attr = lambda n: float(page.evaluate("(n) => document.querySelector('[data-floor]').getAttribute(n)", n))
+    start_clay(page)
+    rx, ry = rim_point(page, math.pi / 2)
+    for k in range(2):  # flare the rim: the profile (and with it holeFor) changes
+        page.mouse.move(rx - 4, ry); page.mouse.down()
+        page.mouse.move(rx + 70 + 30 * k, ry); frames(page, 30)
+        page.mouse.up()
+    click(page, '← Zurück zum Aushöhlen'); at_hollow(page)
+    before = attr('data-wall')
+    click(page, '↶ Rückgängig')
+    tx, ty = top_center(page)
+    page.mouse.move(tx, ty); page.mouse.down(); frames(page, 4); page.mouse.up()
+    after = attr('data-wall')
+    assert abs(after - before) < 0.01, f'wall jumped after undo + touch: {before} -> {after}'
+    assert not errs, errs[:2]
+
+
+FLOWS = [hollow_gesture, undo_fresh_hole, undo_to_solid, hollow_steps, hollow_old_entry, hollow_solid_entry, wet_shine, analytics, portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save, gallery_view, home_hint]
 
 
 def main():

@@ -262,7 +262,7 @@ class Component extends DCLogic {
     screen: 'start', returnScreen: null, lumpSize: DEFAULT_LUMP.size, lumpForm: DEFAULT_LUMP.form, pickingLump: false, tool: false, spinning: true, sound: false, glaze: null, fired: false, firePct: 0,
     gallery: loadGallery(), hint: 'Am Ton ziehen formt ihn. Neben dem Ton ziehen (oder rechte Maustaste) dreht die Ansicht; zwei Finger neben dem Ton zoomen.',
   };
-  profile = defaultProfile(); wall = Pottery.WALL_DEFAULT; floor = null; holeR = null; height = 1.0; history = []; notches = []; corners = 'rund'; lump = { ...DEFAULT_LUMP }; editId = null; preferredGlaze = null; spinBeforeTool = true;
+  profile = defaultProfile(); wall = Pottery.WALL_DEFAULT; floor = null; holeR = null; hollowPull = false; height = 1.0; history = []; notches = []; corners = 'rund'; lump = { ...DEFAULT_LUMP }; editId = null; preferredGlaze = null; spinBeforeTool = true;
   mountRef = React.createRef();
   homeHintOn() {
     try { if (localStorage.getItem('toepfern.homehint') === 'aus') return false; } catch (e) {}
@@ -444,7 +444,7 @@ class Component extends DCLogic {
     const w = el.clientWidth, h = el.clientHeight; if (w < 2 || h < 2) return;
     this.renderer.setSize(w, h, true); this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
   }
-  snapshot() { this.history.push({ p: this.profile.slice(), w: this.wall, f: this.floor, r: this.holeR, h: this.height, n: this.notches.slice(), c: this.corners, l: { ...this.lump }, e: this.editId, g: this.preferredGlaze }); if (this.history.length > 60) this.history.shift(); }
+  snapshot() { this.history.push({ p: this.profile.slice(), w: this.wall, f: this.floor, h: this.height, n: this.notches.slice(), c: this.corners, l: { ...this.lump }, e: this.editId, g: this.preferredGlaze }); if (this.history.length > 60) this.history.shift(); }
 
   applyLump(size, form) { this.shapeTarget = null; const l = Pottery.lumpShape(size, form); this.profile = l.profile; this.height = l.height; this.notches = []; this.corners = 'rund'; this.lump = { size, form }; }
   currentShape() { return Pottery.makeShape({ profile: this.profile, height: this.height, wall: this.wall, floor: this.floor, notches: this.notches, corners: this.corners, lump: this.lump }); }
@@ -453,7 +453,7 @@ class Component extends DCLogic {
     const sh = w.shape;
     this.profile = sh.profile.slice(); this.height = sh.height; this.wall = sh.wall ?? Pottery.WALL_DEFAULT; this.floor = sh.floor === undefined ? Pottery.FLOOR_DEFAULT : sh.floor; this.holeR = this.floor === null ? null : Pottery.holeFor(this.profile, this.wall); this.notches = (sh.notches || []).slice(); this.corners = sh.corners || 'rund'; this.lump = { ...DEFAULT_LUMP, ...(sh.lump || {}) };
     this.editId = w.id; this.preferredGlaze = w.glaze; this.history = []; clearInterval(this.fireTimer); clearTimeout(this.notchTimer); this.resetMaterial(); this.dryAll(); this.refresh();
-    this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, notchMsg: null, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true));
+    this.setState({ screen: this.floor === null ? 'hollow' : 'wheel', returnScreen: null, pickingLump: false, tool: false, notchMsg: null, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true));
   }
 
   // --- shaping: map screen position to ring index + radius in world units
@@ -486,8 +486,8 @@ class Component extends DCLogic {
     }
     if (hollowing) {
       const f = Pottery.flowFactor(dtMs), was = this.floor, wasR = this.holeR;
-      const n = Pottery.hollowStep({ floor: this.floor, holeR: this.holeR }, this.profile, this.height, t.r, f);
-      this.floor = n.floor; this.holeR = n.holeR; this.wall = Pottery.wallFor(this.profile, this.holeR);
+      const n = Pottery.hollowStep({ floor: this.floor, holeR: this.holeR, pull: this.hollowPull }, this.profile, this.height, t.r, f);
+      this.floor = n.floor; this.holeR = n.holeR; this.hollowPull = n.pull; this.wall = Pottery.wallFor(this.profile, this.holeR);
       if (was === null || Math.abs(this.floor - was) > 1e-4 || Math.abs(this.holeR - wasR) > 1e-4) { this.refresh(); if (was === null) this.forceUpdate(); }
     }
     this.showWet(); this.showHollow();
@@ -501,6 +501,7 @@ class Component extends DCLogic {
       if (!this.pointers.size) this.mode = (this.state.screen === 'wheel' && !this.state.pickingLump && !this.state.tool && e.button === 0 && this.hitsPot(e)) ? 'shape' : (this.state.screen === 'hollow' && e.button === 0 && this.hitsPot(e)) ? 'hollow' : 'orbit';
       if (!this.pointers.size && this.state.screen === 'wheel' && this.state.tool && !this.state.pickingLump && e.button === 0) this.notchAt(e);
       this.pointers.set(e.pointerId, e); this.shapeTarget = null;
+      if (this.mode === 'hollow') this.hollowPull = false;
       if (this.mode === 'shape' || this.mode === 'hollow') { this.snapshot(); this.startSound(); this.lastMove = null; this.aimAt([...this.pointers.values()]); }
     });
     el.addEventListener('pointermove', e => {
@@ -641,7 +642,7 @@ class Component extends DCLogic {
       startFire: () => this.startFire(),
       randomShape: () => this.randomShape(),
       taller: () => this.changeHeight(0.08), shorter: () => this.changeHeight(-0.08),
-      undo: () => { const h = this.history.pop(); if (!h) return; this.shapeTarget = null; this.profile = h.p; this.wall = h.w; this.floor = h.f; this.holeR = h.r; this.height = h.h; this.notches = h.n; this.corners = h.c; this.lump = h.l; this.editId = h.e; this.preferredGlaze = h.g; this.dryAll(); this.refresh(); if (this.floor === null && s.screen !== 'hollow') this.setState({ ...this.toolOff(), screen: 'hollow', pickingLump: false }); else this.forceUpdate(); },
+      undo: () => { const h = this.history.pop(); if (!h) return; this.shapeTarget = null; this.profile = h.p; this.wall = h.w; this.floor = h.f; this.holeR = this.floor === null ? null : Pottery.holeFor(this.profile, this.wall); this.height = h.h; this.notches = h.n; this.corners = h.c; this.lump = h.l; this.editId = h.e; this.preferredGlaze = h.g; this.dryAll(); this.refresh(); if (this.floor === null && s.screen !== 'hollow') this.setState({ ...this.toolOff(), screen: 'hollow', pickingLump: false }); else this.forceUpdate(); },
       resetClay: () => { this.snapshot(); this.applyLump(s.lumpSize, s.lumpForm); this.wall = Pottery.WALL_DEFAULT; this.floor = null; this.holeR = null; this.editId = null; this.preferredGlaze = null; this.dryAll(); this.refresh(); this.setState({ ...this.toolOff(), pickingLump: false, screen: 'hollow' }); },
       hollowForMe: () => { this.snapshot(); this.wall = Pottery.WALL_DEFAULT; this.floor = Pottery.FLOOR_DEFAULT; this.holeR = Pottery.holeFor(this.profile, this.wall); this.refresh(); this.setState({ ...this.toolOff(), screen: 'wheel' }); },
       hollowNext: () => { if (this.floor !== null) this.setState({ screen: 'wheel' }); },

@@ -56,13 +56,13 @@
   };
   const wallFor = (profile, holeR) => Math.min(WALL_MAX, Math.max(WALL_MIN, profile[RINGS - 1] - holeR));
   const holeFor = (profile, wall) => Math.max(0.03, profile[RINGS - 1] - wall);
-  const hollowStep = ({ floor, holeR }, profile, height, r, f) => {
-    if (!(f > 0)) return { floor, holeR };
-    if (floor === null || r <= (holeR ?? 0) + PRESS_MARGIN) {
-      const fl = floor === null ? 2 * height : floor;
-      return { floor: fl + (FLOOR_MIN - fl) * f, holeR: holeR ?? HOLE_THUMB };
+  const hollowStep = ({ floor, holeR, pull }, profile, height, r, f) => {
+    if (!(f > 0)) return { floor, holeR, pull: !!pull };
+    if (floor === null || (!pull && r <= (holeR ?? 0) + PRESS_MARGIN)) {
+      const fl = floor === null ? 2 * height - 0.2 : floor;
+      return { floor: fl + (FLOOR_MIN - fl) * f, holeR: holeR ?? HOLE_THUMB, pull: false };
     }
-    return { floor, holeR: Math.max(holeR, holeR + (Math.min(r, profile[RINGS - 1] - WALL_MIN) - holeR) * f) };
+    return { floor, holeR: Math.max(holeR, holeR + (Math.min(r, profile[RINGS - 1] - WALL_MIN) - holeR) * f), pull: true };
   };
   const WET_DRY_MS = 6500, WET_RATE = 0.004;
   const wetStep = (wet, idx, dtMs) => {
