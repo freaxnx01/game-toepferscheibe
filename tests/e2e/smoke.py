@@ -248,9 +248,20 @@ def rim_point(page, a=0.0):
     """Canvas point on the front rim of the default pot (camera theta 0, phi 1.25, dist 5.4, fov 32), rotated by a around the axis."""
     import math
     sh = page.evaluate("() => { const l = Pottery.lumpShape('mittel', 'kegel'); return { h: l.height, r: l.profile[l.profile.length - 1] }; }")
-    box = page.locator('canvas').first.bounding_box()
     h, r = sh['h'], sh['r'] * 0.97
-    P = (r * math.sin(a), 2 * h - 0.1, r * math.cos(a)); T = (0, 0.9 * h, 0); d, phi = 5.4, 1.25
+    return _project(page, (r * math.sin(a), 2 * h - 0.1, r * math.cos(a)), h)
+
+
+def top_center(page):
+    """Canvas point on the top of the lump on its axis."""
+    h = page.evaluate("() => Pottery.lumpShape('mittel', 'kegel').height")
+    return _project(page, (0, 2 * h - 0.05, 0), h)
+
+
+def _project(page, P, h):
+    import math
+    box = page.locator('canvas').first.bounding_box()
+    T = (0, 0.9 * h, 0); d, phi = 5.4, 1.25
     C = (0, T[1] + d * math.cos(phi), d * math.sin(phi))
     f = [T[i] - C[i] for i in range(3)]; n = math.sqrt(sum(x * x for x in f)); f = [x / n for x in f]
     rt = [f[2] * 0 - f[1] * 0, 0, 0]; rt = [-f[2], 0, f[0]]; n = math.hypot(rt[0], rt[2]); rt = [x / n for x in rt]  # right = f x up
@@ -599,6 +610,39 @@ def home_hint(b, url):
     assert page.get_by_text('Tipp:', exact=False).count() == 0, 'tip back after reload'
 
 
+def hollow_gesture(b, url):
+    page = new_page(b, url)
+    errs = []; page.on('pageerror', lambda e: errs.append(str(e)))
+    click(page, 'Ton auf die Scheibe legen')
+    at_hollow(page)
+    h = page.evaluate("() => Pottery.lumpShape('mittel', 'kegel').height")
+    attr = lambda n: page.evaluate("(n) => document.querySelector('[data-floor]').getAttribute(n)", n)
+    tx, ty = top_center(page)
+    page.mouse.move(tx, ty); page.mouse.down()
+    for i in range(25): page.mouse.move(tx + (i % 2), ty); page.wait_for_timeout(100)
+    page.mouse.up()
+    fl = attr('data-floor'); assert fl != 'solid' and float(fl) < 2 * h - 0.6, f'floor after press: {fl}'
+    assert page.get_by_role('button', name='Weiter zum Formen →').is_enabled(), 'Weiter must be enabled after pressing'
+    wall_press = attr('data-wall')
+    import math
+    rx, _ = rim_point(page, math.pi / 2)
+    page.mouse.move(tx, ty); page.mouse.down()
+    for i in range(1, 11): page.mouse.move(tx + (rx - tx) * i / 10, ty); page.wait_for_timeout(50)
+    for i in range(25): page.mouse.move(rx - (i % 2), ty); page.wait_for_timeout(100)
+    page.mouse.up()
+    wall_pull = attr('data-wall'); fl2 = attr('data-floor')
+    assert float(wall_pull) < float(wall_press), (wall_press, wall_pull)
+    assert float(wall_pull) >= 0.080, wall_pull
+    assert abs(float(fl2) - float(fl)) < 0.005, (fl, fl2)
+    shot = os.environ.get('E2E_SHOT_DIR')
+    if shot: page.screenshot(path=str(Path(shot) / 'hollow_gesture.png'))
+    click(page, '↶ Rückgängig')
+    hollow_attrs(page, fl, wall_press)
+    click(page, 'Weiter zum Formen →'); wait_text(page, 'An der Scheibe')
+    hollow_attrs(page, fl, wall_press)
+    assert not errs, errs[:2]
+
+
 def hollow_steps(b, url):
     page = new_page(b, url)
     errs = []; page.on('pageerror', lambda e: errs.append(str(e)))
@@ -657,7 +701,7 @@ def undo_to_solid(b, url):
     assert not errs, errs[:2]
 
 
-FLOWS = [undo_to_solid, hollow_steps, hollow_old_entry, wet_shine, analytics, portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save, gallery_view, home_hint]
+FLOWS = [hollow_gesture, undo_to_solid, hollow_steps, hollow_old_entry, wet_shine, analytics, portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save, gallery_view, home_hint]
 
 
 def main():

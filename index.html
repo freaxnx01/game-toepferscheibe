@@ -479,9 +479,16 @@ class Component extends DCLogic {
   flowTick(dtMs) {
     const t = this.shapeTarget;
     const shaping = t && this.mode === 'shape' && this.pointers.size && this.state.screen === 'wheel' && !this.state.pickingLump && !this.state.tool;
-    const idx = shaping ? Math.round((t.y / (2 * this.height)) * (RINGS - 1)) : null;
-    if (shaping || this.wet.some(v => v > 0)) {
+    const hollowing = t && this.mode === 'hollow' && this.pointers.size && this.state.screen === 'hollow';
+    const idx = shaping || hollowing ? Math.round((t.y / (2 * this.height)) * (RINGS - 1)) : null;
+    if (shaping || hollowing || this.wet.some(v => v > 0)) {
       if (Pottery.wetStep(this.wet, idx, dtMs)) this.syncWet();
+    }
+    if (hollowing) {
+      const f = Pottery.flowFactor(dtMs), was = this.floor, wasR = this.holeR;
+      const n = Pottery.hollowStep({ floor: this.floor, holeR: this.holeR }, this.profile, this.height, t.r, f);
+      this.floor = n.floor; this.holeR = n.holeR; this.wall = Pottery.wallFor(this.profile, this.holeR);
+      if (was === null || Math.abs(this.floor - was) > 1e-4 || Math.abs(this.holeR - wasR) > 1e-4) { this.refresh(); if (was === null) this.forceUpdate(); }
     }
     this.showWet(); this.showHollow();
     if (!shaping) return;
@@ -491,10 +498,10 @@ class Component extends DCLogic {
     el.addEventListener('pointerdown', e => {
       if (this.state.screen === 'gallery' || this.state.screen === 'start') return;
       el.setPointerCapture(e.pointerId);
-      if (!this.pointers.size) this.mode = (this.state.screen === 'wheel' && !this.state.pickingLump && !this.state.tool && e.button === 0 && this.hitsPot(e)) ? 'shape' : 'orbit';
+      if (!this.pointers.size) this.mode = (this.state.screen === 'wheel' && !this.state.pickingLump && !this.state.tool && e.button === 0 && this.hitsPot(e)) ? 'shape' : (this.state.screen === 'hollow' && e.button === 0 && this.hitsPot(e)) ? 'hollow' : 'orbit';
       if (!this.pointers.size && this.state.screen === 'wheel' && this.state.tool && !this.state.pickingLump && e.button === 0) this.notchAt(e);
       this.pointers.set(e.pointerId, e); this.shapeTarget = null;
-      if (this.mode === 'shape') { this.snapshot(); this.startSound(); this.lastMove = null; this.aimAt([...this.pointers.values()]); }
+      if (this.mode === 'shape' || this.mode === 'hollow') { this.snapshot(); this.startSound(); this.lastMove = null; this.aimAt([...this.pointers.values()]); }
     });
     el.addEventListener('pointermove', e => {
       if (!this.pointers.has(e.pointerId)) return;
@@ -511,7 +518,7 @@ class Component extends DCLogic {
       if (dt > 0) this.setRub(Math.hypot(e.clientX - prev.clientX, e.clientY - prev.clientY) / dt * 1000);
       this.aimAt(ps);
     });
-    const up = e => { this.pointers.delete(e.pointerId); if (!this.pointers.size) { this.shapeTarget = null; this.pinchDist = 0; this.lastMove = null; this.setRub(0); } else if (this.mode === 'shape') this.aimAt([...this.pointers.values()]); };
+    const up = e => { this.pointers.delete(e.pointerId); if (!this.pointers.size) { this.shapeTarget = null; this.pinchDist = 0; this.lastMove = null; this.setRub(0); } else if (this.mode === 'shape' || this.mode === 'hollow') this.aimAt([...this.pointers.values()]); };
     el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
     el.addEventListener('contextmenu', e => e.preventDefault());
     el.addEventListener('wheel', e => {
