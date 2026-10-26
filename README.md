@@ -9,6 +9,8 @@ Play it: <https://github.freaxnx01.ch/game-toepferscheibe/>
 
 ## Controls
 
+- **Aushöhlen** (first step for a new lump) — press into the middle to make the hollow deeper, pull outward to make it wider;
+  „Für mich aushöhlen“ skips the step. „← Zurück zum Aushöhlen“ returns to it from the wheel
 - **Drag on the clay** (one or two fingers, or the mouse) — shape it
 - **Drag beside the clay** — rotate the view; pinch beside it to zoom
 - **Mouse wheel** — raise/lower the clay; with Ctrl/Shift, zoom

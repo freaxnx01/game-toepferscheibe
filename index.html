@@ -79,6 +79,23 @@
 
     <aside style="flex:0 1 320px; min-width:280px; display:flex; flex-direction:column; gap:14px; padding:20px 20px 96px; background:#FBF6EC; border-left:2px solid #D9C9B2;">
 
+      <sc-if value="{{ isHollow }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="Aushöhlen" style="display:flex; flex-direction:column; gap:14px;">
+          <h2 style="font-family:Lora, Georgia, serif; font-size:30px; font-weight:600; margin:0 0 6px;">Aushöhlen</h2>
+          <p style="font-size:22px; color:#6E5A4A; margin:0; line-height:1.4; text-wrap:pretty;">Halten Sie den Finger in die Mitte – das Loch wird tiefer. Ziehen Sie dann nach aussen – die Öffnung wird weiter.</p>
+          <div style="display:grid; grid-template-columns:1fr; gap:12px;">
+            <button onClick="{{ hollowForMe }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">Für mich aushöhlen</button>
+            <button onClick="{{ undo }}" style="min-height:72px; font-size:24px; font-weight:700; color:#35261B; background:#F4ECDF; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">↶ Rückgängig</button>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <button onClick="{{ toggleSpin }}" style="min-height:64px; font-size:22px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ spinLabel }}</button>
+            <button onClick="{{ toggleSound }}" style="min-height:64px; font-size:22px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ soundLabel }}</button>
+          </div>
+          <div style="flex:1;"></div>
+          <button disabled="{{ hollowBlocked }}" onClick="{{ hollowNext }}" style="min-height:84px; font-size:28px; font-weight:700; color:#FBF6EC; background:#B45E3A; border:none; border-radius:18px; cursor:pointer; box-shadow:0 6px 0 #8A4428; margin-top:10px; opacity:{{ hollowOpacity }};" style-hover="background:#9B4D2E;" style-active="transform:translateY(4px); box-shadow:0 2px 0 #8A4428;">Weiter zum Formen →</button>
+        </div>
+      </sc-if>
+
       <sc-if value="{{ pickLump }}" hint-placeholder-val="{{ false }}">
         <div data-screen-label="Tonklumpen" style="display:flex; flex-direction:column; gap:14px;">
           <h2 style="font-family:Lora, Georgia, serif; font-size:30px; font-weight:600; margin:0 0 6px;">Neuer Tonklumpen</h2>
@@ -112,6 +129,7 @@
             <button onClick="{{ toggleSound }}" style="min-height:64px; font-size:22px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">{{ soundLabel }}</button>
           </div>
           <div style="flex:1;"></div>
+          <button onClick="{{ backToHollow }}" style="min-height:64px; font-size:22px; font-weight:700; color:#35261B; background:#FBF6EC; border:2px solid #B9A58A; border-radius:14px; cursor:pointer;" style-hover="background:#EBDFCB;">← Zurück zum Aushöhlen</button>
           <button onClick="{{ goGlaze }}" style="min-height:84px; font-size:28px; font-weight:700; color:#FBF6EC; background:#B45E3A; border:none; border-radius:18px; cursor:pointer; box-shadow:0 6px 0 #8A4428; margin-top:10px;" style-hover="background:#9B4D2E;" style-active="transform:translateY(4px); box-shadow:0 2px 0 #8A4428;">Fertig – Glasieren →</button>
         </div>
       </sc-if>
@@ -244,7 +262,7 @@ class Component extends DCLogic {
     screen: 'start', returnScreen: null, lumpSize: DEFAULT_LUMP.size, lumpForm: DEFAULT_LUMP.form, pickingLump: false, tool: false, spinning: true, sound: false, glaze: null, fired: false, firePct: 0,
     gallery: loadGallery(), hint: 'Am Ton ziehen formt ihn. Neben dem Ton ziehen (oder rechte Maustaste) dreht die Ansicht; zwei Finger neben dem Ton zoomen.',
   };
-  profile = defaultProfile(); height = 1.0; history = []; notches = []; corners = 'rund'; lump = { ...DEFAULT_LUMP }; editId = null; preferredGlaze = null; spinBeforeTool = true;
+  profile = defaultProfile(); wall = Pottery.WALL_DEFAULT; floor = null; holeR = null; hollowPull = false; height = 1.0; history = []; notches = []; corners = 'rund'; lump = { ...DEFAULT_LUMP }; editId = null; preferredGlaze = null; spinBeforeTool = true;
   mountRef = React.createRef();
   homeHintOn() {
     try { if (localStorage.getItem('toepfern.homehint') === 'aus') return false; } catch (e) {}
@@ -370,7 +388,7 @@ class Component extends DCLogic {
   setCorners(mode) { this.snapshot(); this.corners = mode; this.refresh(); this.forceUpdate(); }
   buildGeo() {
     const THREE = window.THREE, g = this.geoFrom(this.currentShape()), count = g.attributes.position.count;
-    const rings = Pottery.outlineRings(this.profile, this.height), nn = rings.length, wa = new Float32Array(count);
+    const rings = Pottery.outlineRings(this.profile, this.height, this.wall, this.floor), nn = rings.length, wa = new Float32Array(count);
     for (let i = 0; i < wa.length; i++) wa[i] = this.wet[rings[i % nn]];
     g.setAttribute('wet', new THREE.BufferAttribute(wa, 1)); this.wetRings = rings;
     return g;
@@ -381,7 +399,7 @@ class Component extends DCLogic {
     g.setAttribute('position', new THREE.BufferAttribute(m.positions, 3)); g.setAttribute('uv', new THREE.BufferAttribute(m.uvs, 2)); g.setIndex(m.indices);
     g.computeVertexNormals();
     // seam at theta=0/2pi: average the duplicated vertices' normals so no crease shows
-    const nr = g.attributes.normal, n = Pottery.outline(shape.profile, shape.height).length, last = (m.positions.length / 3) - n;
+    const nr = g.attributes.normal, n = Pottery.outline(shape.profile, shape.height, shape.wall, shape.floor).length, last = (m.positions.length / 3) - n;
     for (let j = 0; j < n; j++) { const x = nr.getX(j) + nr.getX(last + j), y = nr.getY(j) + nr.getY(last + j), z = nr.getZ(j) + nr.getZ(last + j), l = Math.hypot(x, y, z) || 1; nr.setXYZ(j, x / l, y / l, z / l); nr.setXYZ(last + j, x / l, y / l, z / l); }
     return g;
   }
@@ -413,6 +431,12 @@ class Component extends DCLogic {
     const el = this.mountRef.current; if (!el) return;
     const v = Math.max(0, ...this.wet).toFixed(2); if (v !== this.wetShown) { this.wetShown = v; el.setAttribute('data-wet', v); }
   }
+  showHollow() {
+    const el = this.mountRef.current; if (!el) return;
+    const f = this.floor === null ? 'solid' : this.floor.toFixed(3), w = this.wall.toFixed(3);
+    if (f !== this.floorShown) { this.floorShown = f; el.setAttribute('data-floor', f); }
+    if (w !== this.wallShown) { this.wallShown = w; el.setAttribute('data-wall', w); }
+  }
   dryAll() { this.wet.fill(0); this.syncWet(); this.showWet(); }
   refresh() { if (!this.pot) return; this.pot.geometry.dispose(); this.pot.geometry = this.buildGeo(); this.updateCamera(); }
   resize() {
@@ -420,16 +444,16 @@ class Component extends DCLogic {
     const w = el.clientWidth, h = el.clientHeight; if (w < 2 || h < 2) return;
     this.renderer.setSize(w, h, true); this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
   }
-  snapshot() { this.history.push({ p: this.profile.slice(), h: this.height, n: this.notches.slice(), c: this.corners, l: { ...this.lump }, e: this.editId, g: this.preferredGlaze }); if (this.history.length > 60) this.history.shift(); }
+  snapshot() { this.history.push({ p: this.profile.slice(), w: this.wall, f: this.floor, h: this.height, n: this.notches.slice(), c: this.corners, l: { ...this.lump }, e: this.editId, g: this.preferredGlaze }); if (this.history.length > 60) this.history.shift(); }
 
   applyLump(size, form) { this.shapeTarget = null; const l = Pottery.lumpShape(size, form); this.profile = l.profile; this.height = l.height; this.notches = []; this.corners = 'rund'; this.lump = { size, form }; }
-  currentShape() { return Pottery.makeShape({ profile: this.profile, height: this.height, notches: this.notches, corners: this.corners, lump: this.lump }); }
+  currentShape() { return Pottery.makeShape({ profile: this.profile, height: this.height, wall: this.wall, floor: this.floor, notches: this.notches, corners: this.corners, lump: this.lump }); }
   loadWork(w) {
     this.shapeTarget = null;
     const sh = w.shape;
-    this.profile = sh.profile.slice(); this.height = sh.height; this.notches = (sh.notches || []).slice(); this.corners = sh.corners || 'rund'; this.lump = { ...DEFAULT_LUMP, ...(sh.lump || {}) };
+    this.profile = sh.profile.slice(); this.height = sh.height; this.wall = sh.wall ?? Pottery.WALL_DEFAULT; this.floor = sh.floor === undefined ? Pottery.FLOOR_DEFAULT : sh.floor; this.holeR = this.floor === null ? null : Pottery.holeFor(this.profile, this.wall); this.notches = (sh.notches || []).slice(); this.corners = sh.corners || 'rund'; this.lump = { ...DEFAULT_LUMP, ...(sh.lump || {}) };
     this.editId = w.id; this.preferredGlaze = w.glaze; this.history = []; clearInterval(this.fireTimer); clearTimeout(this.notchTimer); this.resetMaterial(); this.dryAll(); this.refresh();
-    this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, notchMsg: null, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true));
+    this.setState({ screen: this.floor === null ? 'hollow' : 'wheel', returnScreen: null, pickingLump: false, tool: false, notchMsg: null, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true));
   }
 
   // --- shaping: map screen position to ring index + radius in world units
@@ -455,11 +479,18 @@ class Component extends DCLogic {
   flowTick(dtMs) {
     const t = this.shapeTarget;
     const shaping = t && this.mode === 'shape' && this.pointers.size && this.state.screen === 'wheel' && !this.state.pickingLump && !this.state.tool;
-    const idx = shaping ? Math.round((t.y / (2 * this.height)) * (RINGS - 1)) : null;
-    if (shaping || this.wet.some(v => v > 0)) {
+    const hollowing = t && this.mode === 'hollow' && this.pointers.size && this.state.screen === 'hollow';
+    const idx = shaping || hollowing ? Math.round((t.y / (2 * this.height)) * (RINGS - 1)) : null;
+    if (shaping || hollowing || this.wet.some(v => v > 0)) {
       if (Pottery.wetStep(this.wet, idx, dtMs)) this.syncWet();
     }
-    this.showWet();
+    if (hollowing) {
+      const f = Pottery.flowFactor(dtMs), was = this.floor, wasR = this.holeR;
+      const n = Pottery.hollowStep({ floor: this.floor, holeR: this.holeR, pull: this.hollowPull }, this.profile, this.height, t.r, f);
+      this.floor = n.floor; this.holeR = n.holeR; this.hollowPull = n.pull; this.wall = Pottery.wallFor(this.profile, this.holeR);
+      if (was === null || Math.abs(this.floor - was) > 1e-4 || Math.abs(this.holeR - wasR) > 1e-4) { this.refresh(); if (was === null) this.forceUpdate(); }
+    }
+    this.showWet(); this.showHollow();
     if (!shaping) return;
     if (Pottery.flowStep(this.profile, idx, t.r, Pottery.flowFactor(dtMs)) > 1e-4) this.refresh();
   }
@@ -467,10 +498,11 @@ class Component extends DCLogic {
     el.addEventListener('pointerdown', e => {
       if (this.state.screen === 'gallery' || this.state.screen === 'start') return;
       el.setPointerCapture(e.pointerId);
-      if (!this.pointers.size) this.mode = (this.state.screen === 'wheel' && !this.state.pickingLump && !this.state.tool && e.button === 0 && this.hitsPot(e)) ? 'shape' : 'orbit';
+      if (!this.pointers.size) this.mode = (this.state.screen === 'wheel' && !this.state.pickingLump && !this.state.tool && e.button === 0 && this.hitsPot(e)) ? 'shape' : (this.state.screen === 'hollow' && e.button === 0 && this.hitsPot(e)) ? 'hollow' : 'orbit';
       if (!this.pointers.size && this.state.screen === 'wheel' && this.state.tool && !this.state.pickingLump && e.button === 0) this.notchAt(e);
       this.pointers.set(e.pointerId, e); this.shapeTarget = null;
-      if (this.mode === 'shape') { this.snapshot(); this.startSound(); this.lastMove = null; this.aimAt([...this.pointers.values()]); }
+      if (this.mode === 'hollow') this.hollowPull = false;
+      if (this.mode === 'shape' || this.mode === 'hollow') { this.snapshot(); this.startSound(); this.lastMove = null; this.aimAt([...this.pointers.values()]); }
     });
     el.addEventListener('pointermove', e => {
       if (!this.pointers.has(e.pointerId)) return;
@@ -487,7 +519,7 @@ class Component extends DCLogic {
       if (dt > 0) this.setRub(Math.hypot(e.clientX - prev.clientX, e.clientY - prev.clientY) / dt * 1000);
       this.aimAt(ps);
     });
-    const up = e => { this.pointers.delete(e.pointerId); if (!this.pointers.size) { this.shapeTarget = null; this.pinchDist = 0; this.lastMove = null; this.setRub(0); } else if (this.mode === 'shape') this.aimAt([...this.pointers.values()]); };
+    const up = e => { this.pointers.delete(e.pointerId); if (!this.pointers.size) { this.shapeTarget = null; this.pinchDist = 0; this.lastMove = null; this.setRub(0); } else if (this.mode === 'shape' || this.mode === 'hollow') this.aimAt([...this.pointers.values()]); };
     el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
     el.addEventListener('contextmenu', e => e.preventDefault());
     el.addEventListener('wheel', e => {
@@ -571,15 +603,15 @@ class Component extends DCLogic {
 
   renderVals() {
     const s = this.state, screen = s.screen;
-    const labels = { start: '', wheel: 'An der Scheibe', glaze: 'Glasieren', firing: 'Brennen', done: 'Fertig', gallery: 'Galerie', view: 'Ansicht' };
+    const labels = { start: '', hollow: 'Aushöhlen', wheel: 'An der Scheibe', glaze: 'Glasieren', firing: 'Brennen', done: 'Fertig', gallery: 'Galerie', view: 'Ansicht' };
     const fireTemp = Math.round(20 + 1230 * (s.firePct < 60 ? s.firePct / 60 : Math.max(0.02, (100 - s.firePct) / 40)));
     return {
       showHomeHint: !s.homeHintDismissed && this.homeHintOn(), dismissHomeHint: this.dismissHomeHint,
-      stepLabel: labels[screen], isStart: screen === 'start', isWheel: screen === 'wheel', isGlaze: screen === 'glaze',
+      stepLabel: labels[screen], isStart: screen === 'start', isHollow: screen === 'hollow', hollowBlocked: this.floor === null, hollowOpacity: this.floor === null ? 0.45 : 1, isWheel: screen === 'wheel', isGlaze: screen === 'glaze',
       isFiring: screen === 'firing', isDone: screen === 'done', isGallery: screen === 'gallery', isView: screen === 'view',
       viewGlaze: s.viewing ? s.viewing.glaze : '', viewDate: s.viewing ? s.viewing.date : '', viewCanEdit: !!s.viewing && Pottery.canEdit(s.viewing), viewEdit: () => this.loadWork(s.viewing),
       closeViewBtn: () => this.setState({ screen: 'gallery' }, () => this.setMotor(false)),
-      canvasDisplay: ['wheel', 'glaze', 'firing', 'done', 'view'].includes(screen) ? 'flex' : 'none',
+      canvasDisplay: ['hollow', 'wheel', 'glaze', 'firing', 'done', 'view'].includes(screen) ? 'flex' : 'none',
       showGalleryBtn: screen !== 'gallery' && screen !== 'start', galleryCount: s.gallery.length, hasGallery: s.gallery.length > 0,
       galleryEmpty: s.gallery.length === 0, mountRef: this.mountRef, hint: s.tool && s.notchMsg ? s.notchMsg : s.tool ? 'Werkzeug: Tippen Sie auf den Rand für eine Kerbe. Neben dem Ton ziehen dreht die Ansicht.' : s.hint,
       spinLabel: s.spinning ? '⏸ Scheibe anhalten' : '▶ Scheibe drehen', soundLabel: s.sound ? '🔊 Klang an' : '🔇 Klang aus',
@@ -590,8 +622,8 @@ class Component extends DCLogic {
       glazeName: s.glaze ? s.glaze.name : '',
       glazes: GLAZES.map(g => ({ name: g.name, color: g.color, border: s.glaze && s.glaze.name === g.name ? '#B45E3A' : '#D9C9B2', pick: () => this.setGlaze(g) })),
       gallery: s.gallery.map((w, i) => ({ ...w, canEdit: Pottery.canEdit(w), cantEdit: !Pottery.canEdit(w), view: () => this.openView(w), edit: () => this.loadWork(w), thumbStyle: { display: 'block', width: '100%', aspectRatio: '1', backgroundColor: '#E2D2B9', backgroundImage: `url("${w.img}")`, backgroundSize: 'cover', backgroundPosition: 'center' }, remove: () => { const gallery = s.gallery.filter((_, j) => j !== i); localStorage.setItem(KEY, JSON.stringify(gallery)); this.setState({ gallery }); } })),
-      startNew: () => { try { window.gameAnalytics && window.gameAnalytics.track('game_start', { game: 'toepferscheibe' }); } catch (e) {} this.applyLump(s.lumpSize, s.lumpForm); this.history = []; this.editId = null; this.preferredGlaze = null; clearInterval(this.fireTimer); clearTimeout(this.notchTimer); this.resetMaterial(); this.dryAll(); this.refresh(); this.setState({ screen: 'wheel', returnScreen: null, pickingLump: false, tool: false, notchMsg: null, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true)); },
-      goStart: () => this.setState({ screen: 'start', returnScreen: ['wheel', 'glaze', 'firing', 'done'].includes(s.screen) ? s.screen : s.returnScreen }, () => this.setMotor(false)),
+      startNew: () => { try { window.gameAnalytics && window.gameAnalytics.track('game_start', { game: 'toepferscheibe' }); } catch (e) {} this.applyLump(s.lumpSize, s.lumpForm); this.wall = Pottery.WALL_DEFAULT; this.floor = null; this.holeR = null; this.history = []; this.editId = null; this.preferredGlaze = null; clearInterval(this.fireTimer); clearTimeout(this.notchTimer); this.resetMaterial(); this.dryAll(); this.refresh(); this.setState({ screen: 'hollow', returnScreen: null, pickingLump: false, tool: false, notchMsg: null, glaze: null, fired: false, firePct: 0, spinning: true }, () => this.setMotor(true)); },
+      goStart: () => this.setState({ screen: 'start', returnScreen: ['hollow', 'wheel', 'glaze', 'firing', 'done'].includes(s.screen) ? s.screen : s.returnScreen }, () => this.setMotor(false)),
       hasReturnStart: screen === 'start' && !!s.returnScreen,
       sizeOpts: [['klein', 'Klein'], ['mittel', 'Mittel'], ['gross', 'Gross']].map(([v, label]) => ({ label, border: s.lumpSize === v ? '#B45E3A' : '#B9A58A', color: s.lumpSize === v ? '#FBF6EC' : '#35261B', bg: s.lumpSize === v ? '#B45E3A' : '#F4ECDF', pick: () => this.setState({ lumpSize: v }) })),
       formOpts: [['kugel', 'Kugel'], ['kegel', 'Kegel']].map(([v, label]) => ({ label, border: s.lumpForm === v ? '#B45E3A' : '#B9A58A', color: s.lumpForm === v ? '#FBF6EC' : '#35261B', bg: s.lumpForm === v ? '#B45E3A' : '#F4ECDF', pick: () => this.setState({ lumpForm: v }) })),
@@ -601,17 +633,20 @@ class Component extends DCLogic {
       cornerOpts: [['rund', 'Rund'], ['oval', 'Oval'], ['dreieckig', 'Dreieckig'], ['viereckig', 'Viereckig']].map(([v, label]) => ({ label, border: this.corners === v ? '#B45E3A' : '#B9A58A', color: this.corners === v ? '#FBF6EC' : '#35261B', bg: this.corners === v ? '#B45E3A' : '#F4ECDF', pick: () => this.setCorners(v) })),
       openLump: () => this.setState({ ...this.toolOff(), pickingLump: true, lumpSize: this.lump.size, lumpForm: this.lump.form }, () => this.setMotor(this.state.spinning)),
       cancelLump: () => this.setState({ pickingLump: false }),
-      goGallery: () => this.setState({ screen: 'gallery', returnScreen: ['wheel', 'glaze', 'firing', 'done'].includes(s.screen) ? s.screen : s.returnScreen }, () => this.setMotor(false)),
+      goGallery: () => this.setState({ screen: 'gallery', returnScreen: ['hollow', 'wheel', 'glaze', 'firing', 'done'].includes(s.screen) ? s.screen : s.returnScreen }, () => this.setMotor(false)),
       hasReturn: screen === 'gallery' && !!s.returnScreen,
       backToWork: () => this.setState({ screen: s.returnScreen, returnScreen: null }, () => this.setMotor(this.state.spinning)),
       resetView: () => this.resetCamera(),
-      goGlaze: () => { this.dryAll(); const g = !s.glaze && GLAZES.find(x => x.name === this.preferredGlaze); if (g) this.setGlaze(g); this.setState({ ...this.toolOff(), screen: 'glaze' }, () => this.setMotor(this.state.spinning)); },
+      goGlaze: () => { if (this.floor === null) return; this.dryAll(); const g = !s.glaze && GLAZES.find(x => x.name === this.preferredGlaze); if (g) this.setGlaze(g); this.setState({ ...this.toolOff(), screen: 'glaze' }, () => this.setMotor(this.state.spinning)); },
       backToWheel: () => { this.resetMaterial(); this.setState({ screen: 'wheel', glaze: null }); },
       startFire: () => this.startFire(),
       randomShape: () => this.randomShape(),
       taller: () => this.changeHeight(0.08), shorter: () => this.changeHeight(-0.08),
-      undo: () => { const h = this.history.pop(); if (!h) return; this.shapeTarget = null; this.profile = h.p; this.height = h.h; this.notches = h.n; this.corners = h.c; this.lump = h.l; this.editId = h.e; this.preferredGlaze = h.g; this.dryAll(); this.refresh(); this.forceUpdate(); },
-      resetClay: () => { this.snapshot(); this.applyLump(s.lumpSize, s.lumpForm); this.editId = null; this.preferredGlaze = null; this.dryAll(); this.refresh(); this.setState({ pickingLump: false }); },
+      undo: () => { const h = this.history.pop(); if (!h) return; this.shapeTarget = null; this.profile = h.p; this.wall = h.w; this.floor = h.f; this.holeR = this.floor === null ? null : Pottery.holeFor(this.profile, this.wall); this.height = h.h; this.notches = h.n; this.corners = h.c; this.lump = h.l; this.editId = h.e; this.preferredGlaze = h.g; this.dryAll(); this.refresh(); if (this.floor === null && s.screen !== 'hollow') this.setState({ ...this.toolOff(), screen: 'hollow', pickingLump: false }); else this.forceUpdate(); },
+      resetClay: () => { this.snapshot(); this.applyLump(s.lumpSize, s.lumpForm); this.wall = Pottery.WALL_DEFAULT; this.floor = null; this.holeR = null; this.editId = null; this.preferredGlaze = null; this.dryAll(); this.refresh(); this.setState({ ...this.toolOff(), pickingLump: false, screen: 'hollow' }); },
+      hollowForMe: () => { this.snapshot(); this.wall = Pottery.WALL_DEFAULT; this.floor = Pottery.FLOOR_DEFAULT; this.holeR = Pottery.holeFor(this.profile, this.wall); this.refresh(); this.setState({ ...this.toolOff(), screen: 'wheel' }); },
+      hollowNext: () => { if (this.floor !== null) this.setState({ screen: 'wheel' }); },
+      backToHollow: () => { this.shapeTarget = null; this.holeR = this.floor === null ? null : Pottery.holeFor(this.profile, this.wall); this.setState({ ...this.toolOff(), screen: 'hollow' }); },
       toggleSpin: () => { if (s.tool) this.spinBeforeTool = !s.spinning; this.setState({ spinning: !s.spinning }, () => this.setMotor(this.state.spinning)); },
       toggleSound: () => this.setState({ sound: !s.sound }, () => { if (this.state.sound) this.startSound(); else this.stopSound(); }),
       saveToGallery: () => {

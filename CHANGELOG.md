@@ -8,6 +8,7 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- Aushöhlen als erster Schritt: in der Mitte drücken macht das Loch tiefer, nach aussen ziehen macht es weiter (#8).
 - Nasser Glanz: Der Ton glänzt beim Formen stellenweise nass und trocknet in einigen Sekunden ab (#7).
 - Galerie: Werke lassen sich in 3D anschauen und drehen (#13).
 - Speicherschutz: Der Browser wird um dauerhaften Speicher gebeten, und auf iPad/iPhone erscheint einmalig ein Tipp zum Home-Bildschirm (#5).
