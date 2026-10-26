@@ -9,6 +9,8 @@ All notable changes to this project are documented here, following
 ### Added
 
 - Nasser Glanz: Der Ton glänzt beim Formen stellenweise nass und trocknet in einigen Sekunden ab (#7).
+- Galerie: Werke lassen sich in 3D anschauen und drehen (#13).
+- Speicherschutz: Der Browser wird um dauerhaften Speicher gebeten, und auf iPad/iPhone erscheint einmalig ein Tipp zum Home-Bildschirm (#5).
 
 ## [0.2.0] - 2026-10-23
 

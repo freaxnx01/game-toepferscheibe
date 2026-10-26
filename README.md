@@ -31,11 +31,19 @@ nur kurzzeitig für die Bestimmung von Land und Region verwendet. Die Galerie bl
 Browser (`localStorage`) und wird nicht übertragen. Wird das Skript blockiert (z. B. durch
 einen Adblocker), läuft das Spiel unverändert weiter.
 
+**Speicherung.** Die Werke bleiben nur in diesem Browser. Safari kann Daten von Seiten löschen,
+die länger nicht besucht wurden; das Spiel bittet den Browser deshalb um dauerhaften Speicher
+und zeigt auf iPad/iPhone einmalig den Tipp, es auf den Home-Bildschirm zu legen.
+
 **English.** This game counts visits and game starts with **Umami**, self-hosted on a server
 in **Germany** (`stats.freaxnx01.ch`). No cookies are set and no personal data is stored. The
 IP address is not stored; it is used only transiently to look up country and region. The
 gallery stays in the browser (`localStorage`) and is never sent. If the script is blocked
 (e.g. by an ad blocker), the game runs exactly as before.
+
+**Storage.** Works stay only in this browser. Safari may purge data of sites not visited for a
+while, so the game asks the browser for persistent storage and, on iPad/iPhone, shows a
+one-time tip to add it to the Home Screen.
 
 ## Stack
 

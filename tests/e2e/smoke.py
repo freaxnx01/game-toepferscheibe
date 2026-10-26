@@ -25,8 +25,8 @@ def start_server():
 CTX = []
 
 
-def new_page(browser, url, seed=None, init=None):
-    ctx = browser.new_context(viewport={'width': 1180, 'height': 820}); CTX.append(ctx)
+def new_page(browser, url, seed=None, init=None, **ctx_kw):
+    ctx = browser.new_context(viewport={'width': 1180, 'height': 820}, **ctx_kw); CTX.append(ctx)
     ctx.route('https://stats.freaxnx01.ch/**', lambda r: r.abort())
     if init: ctx.add_init_script(init)
     page = ctx.new_page()
@@ -138,17 +138,29 @@ def back_from_wheel(b, url):
 
 def back_during_firing(b, url):
     page = new_page(b, url)
+    errs = []; page.on('pageerror', lambda e: errs.append(str(e)))
+    seed = page.evaluate("() => [{id: Pottery.newId(), img: 'data:,', glaze: 'Kobalt', date: '2. Januar 2026', shape: Pottery.makeShape({profile: Pottery.defaultProfile(), height: 1})}]")
+    page.evaluate('([k, v]) => localStorage.setItem(k, v)', [KEY, json.dumps(seed)]); page.reload(wait_until='domcontentloaded')
     page.set_viewport_size({'width': 640, 'height': 460})
     page.set_default_timeout(300000)  # software GL: the visible firing canvas can starve the page for minutes
     click(page, 'Ton auf die Scheibe legen')
     click(page, 'Fertig – Glasieren →')
     click(page, 'In den Ofen →')
-    click(page, 'Galerie (0)', exact=False)
+    click(page, 'Galerie (1)', exact=False)
     wait_text(page, 'Meine Werke')
     page.wait_for_timeout(8000)
     assert page.get_by_role('heading', name='Meine Werke').count() == 1, 'left the gallery on its own'
     page.get_by_role('button', name=BACK).first.click(no_wait_after=True)  # the post-click wait starves on the software-GL canvas
     wait_text(page, 'Stück herausnehmen →')
+    # view round trip from firing: header Galerie -> 3D -> back to gallery -> back to my piece
+    click(page, 'Galerie (1)', exact=False); wait_text(page, 'Meine Werke')
+    page.get_by_role('button', name=VIEW, exact=True).click(no_wait_after=True)
+    page.get_by_role('heading', name='Kobalt').wait_for(state='visible')
+    page.get_by_role('button', name=BACKG, exact=True).click(no_wait_after=True); wait_text(page, 'Meine Werke')
+    page.get_by_role('button', name=BACK).first.click(no_wait_after=True)
+    wait_text(page, 'Stück herausnehmen →')
+    assert page.get_by_text('Der Ofen heizt langsam auf.', exact=False).count() == 1, 'firing panel gone after view round trip'
+    assert not errs, errs[:2]
     for t in ('Der Ofen heizt langsam auf.', 'Der Ofen kühlt ab.'): assert page.get_by_text(t, exact=False).count() == 1, f'step missing: {t}'
     assert page.get_by_text('Fertig gebrannt').count() == 0, 'auto-advanced to done without the button'
     assert page.get_by_text('✓').count() == 2, 'expected two done marks'
@@ -492,7 +504,75 @@ def analytics(b, url):
     assert not errs, errs[:2]
 
 
-FLOWS = [wet_shine, analytics, portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save]
+SHOT_DIR = os.environ.get('E2E_SHOT_DIR')
+VIEW = 'In 3D anschauen'
+BACKG = '← Zurück zur Galerie'
+
+
+def gallery_view(b, url):
+    import hashlib
+    page = new_page(b, url)
+    errs = []; page.on('pageerror', lambda e: errs.append(str(e)))
+    new = page.evaluate("() => ({id: Pottery.newId(), img: 'data:,', glaze: 'Kobalt', date: '2. Januar 2026', shape: Pottery.makeShape({profile: Pottery.defaultProfile(), height: 1})})")
+    page.evaluate('([k, v]) => localStorage.setItem(k, v)', [KEY, json.dumps([{'img': 'data:,', 'glaze': 'Honig', 'date': '1. Januar 2026'}, new])])
+    page.reload(wait_until='domcontentloaded')
+    click(page, 'Ton auf die Scheibe legen')
+    click(page, '▲ Höher ziehen')
+    click(page, '⏸ Scheibe anhalten')
+    page.wait_for_timeout(500)
+    h0 = hashlib.md5(page.locator('canvas').first.screenshot()).hexdigest()
+    click(page, 'Galerie (2)', exact=False); wait_text(page, 'Meine Werke')
+    assert page.get_by_role('button', name=VIEW, exact=True).count() == 1, 'exactly the new card needs a 3D button'
+    badge = page.get_by_role('button', name=VIEW, exact=True).get_by_text(VIEW).first.bounding_box()
+    assert badge and badge['height'] >= 20, f'badge too small: {badge}'
+    before = gallery(page)
+    page.get_by_role('button', name=VIEW, exact=True).click()
+    page.get_by_role('heading', name='Kobalt').wait_for(state='visible')
+    assert page.get_by_role('button', name=BACKG, exact=True).is_visible()
+    page.wait_for_timeout(300)
+    bb = page.get_by_role('button', name=BACKG, exact=True).bounding_box(); assert bb and bb['y'] >= 0 and bb['y'] + bb['height'] <= 820, f'back button below the fold: {bb}'
+    assert page.locator('canvas').first.is_visible(), 'canvas hidden in view'
+    page.wait_for_timeout(800)
+    if SHOT_DIR:
+        Path(SHOT_DIR).mkdir(parents=True, exist_ok=True); page.locator('canvas').first.screenshot(path=str(Path(SHOT_DIR) / 'view.png'))
+    drag_pot(page)
+    assert gallery(page) == before, 'drag changed the gallery'
+    click(page, BACKG); wait_text(page, 'Meine Werke')
+    assert page.get_by_role('button', name=BACK).count() == 1, 'back to my piece missing after view'
+    page.get_by_role('button', name=VIEW, exact=True).click()
+    page.get_by_role('heading', name='Kobalt').wait_for(state='visible')
+    click(page, BACKG); click(page, BACK)
+    wait_text(page, 'An der Scheibe'); page.wait_for_timeout(500)
+    h1 = hashlib.md5(page.locator('canvas').first.screenshot()).hexdigest()
+    assert h0 == h1, 'work piece changed by viewing'
+    click(page, 'Galerie (2)', exact=False)
+    page.get_by_role('button', name=VIEW, exact=True).click()
+    page.get_by_role('heading', name='Kobalt').wait_for(state='visible')
+    click(page, 'Galerie (2)', exact=False); wait_text(page, 'Meine Werke')
+    assert page.get_by_role('button', name=BACK).count() == 1, 'back to my piece missing after header exit'
+    page.get_by_role('button', name=VIEW, exact=True).click()
+    page.get_by_role('heading', name='Kobalt').wait_for(state='visible')
+    click(page, 'Weiter töpfern'); wait_text(page, 'An der Scheibe')
+    assert page.get_by_role('button', name='Fertig – Glasieren →').is_visible()
+    assert not errs, errs[:2]
+
+
+def home_hint(b, url):
+    IPAD = 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+    d = new_page(b, url); d.wait_for_timeout(500)
+    assert d.get_by_text('Tipp:', exact=False).count() == 0, 'desktop must not show the tip'
+    page = new_page(b, url, user_agent=IPAD, has_touch=True, init="Object.defineProperty(navigator, 'maxTouchPoints', {get: () => 5})")
+    wait_text(page, 'Tipp:')
+    btn = page.get_by_role('button', name='Verstanden', exact=True)
+    assert btn.bounding_box()['height'] >= 64, 'Verstanden too small'
+    btn.click()
+    page.get_by_text('Tipp:', exact=False).wait_for(state='hidden')
+    page.reload(wait_until='domcontentloaded'); wait_text(page, 'Schön, dass Sie da sind')
+    page.wait_for_timeout(500)
+    assert page.get_by_text('Tipp:', exact=False).count() == 0, 'tip back after reload'
+
+
+FLOWS = [wet_shine, analytics, portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save, gallery_view, home_hint]
 
 
 def main():

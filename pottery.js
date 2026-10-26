@@ -89,7 +89,12 @@
     return max;
   };
   const fireSteps = (pct) => [{ text: 'Der Ofen heizt langsam auf. Die Glasur schmilzt und wird glänzend.', state: pct < 60 ? 'active' : 'done' }, { text: 'Der Ofen kühlt ab. Gleich können Sie Ihr Stück herausnehmen.', state: pct < 60 ? 'todo' : pct < 100 ? 'active' : 'done' }];
-  const api = { WET_DRY_MS, WET_RATE, wetStep, wetRoughness, outlineRings, fireSteps, FLOW_TAU, flowFactor, flowStep, CORNERS, NOTCH_DEPTH, NOTCH_HALF_WIDTH, NOTCH_MIN_GAP, MAX_NOTCHES, notchBlock, cornerFactor, rimDrop, addNotch, angleOf, outline, buildMesh, MOTOR_GAIN, rubGain, RINGS, MINR, MAXR, HMIN, HMAX, MAX_WORKS, defaultProfile, lumpShape, newId, makeShape, canEdit, upsertEntry };
+  const needsHomeHint = ({ ua = '', maxTouchPoints = 0, standalone, displayStandalone } = {}) => {
+    const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && maxTouchPoints > 1);
+    const safari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+    return ios && safari && standalone !== true && displayStandalone !== true;
+  };
+  const api = { WET_DRY_MS, WET_RATE, wetStep, wetRoughness, outlineRings, fireSteps, FLOW_TAU, flowFactor, flowStep, CORNERS, NOTCH_DEPTH, NOTCH_HALF_WIDTH, NOTCH_MIN_GAP, MAX_NOTCHES, notchBlock, cornerFactor, rimDrop, addNotch, angleOf, outline, buildMesh, MOTOR_GAIN, rubGain, RINGS, MINR, MAXR, HMIN, HMAX, MAX_WORKS, defaultProfile, lumpShape, newId, makeShape, canEdit, upsertEntry, needsHomeHint };
   if (typeof window !== 'undefined') window.Pottery = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();
