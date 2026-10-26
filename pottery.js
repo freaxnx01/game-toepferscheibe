@@ -57,6 +57,7 @@
   const wallFor = (profile, holeR) => Math.min(WALL_MAX, Math.max(WALL_MIN, profile[RINGS - 1] - holeR));
   const holeFor = (profile, wall) => Math.max(0.03, profile[RINGS - 1] - wall);
   const hollowStep = ({ floor, holeR }, profile, height, r, f) => {
+    if (!(f > 0)) return { floor, holeR };
     if (floor === null || r <= (holeR ?? 0) + PRESS_MARGIN) {
       const fl = floor === null ? 2 * height : floor;
       return { floor: fl + (FLOOR_MIN - fl) * f, holeR: holeR ?? HOLE_THUMB };

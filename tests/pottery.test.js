@@ -256,6 +256,7 @@ test('outline custom wall/floor', () => {
 test('outline floor clamped', () => {
   const o = P.outline(P.defaultProfile(), 0.4, 0.13, 0.7);
   near(o[o.length - 1][1], 0.6);
+  assert.equal(P.outlineRings(P.defaultProfile(), 0.4, 0.13, 0.7).length, o.length);
 });
 
 test('outline solid', () => {
@@ -311,7 +312,7 @@ test('hollowStep press', () => {
   const t = { floor: 0.5, holeR: 0.15 };
   assert.deepEqual(P.hollowStep(t, p, 1, 0, 0), t);
   assert.notEqual(P.hollowStep(t, p, 1, 0, 0), t);
-  assert.equal(P.hollowStep({ floor: null, holeR: null }, p, 1, 0, 0).floor, 2);
+  assert.deepEqual(P.hollowStep({ floor: null, holeR: null }, p, 1, 0, 0), { floor: null, holeR: null });
 });
 
 test('hollowStep pull', () => {
