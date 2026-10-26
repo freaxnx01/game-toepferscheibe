@@ -228,8 +228,10 @@ def lump_choice(b, url):
     click(page, 'Für mich aushöhlen')
     click(page, '▲ Höher ziehen')
     click(page, '↶ Rückgängig')
+    click(page, '↶ Rückgängig')  # back to solid: the game returns to Aushöhlen
+    at_hollow(page)
     click(page, '↶ Rückgängig')
-    click(page, '↶ Rückgängig')
+    click(page, 'Weiter zum Formen →')
     click(page, 'Neuer Tonklumpen')
     assert page.get_by_role('button', name='Gross', exact=True).first.evaluate('e => getComputedStyle(e).borderTopColor') == 'rgb(180, 94, 58)', 'undo did not restore lump'
     click(page, 'Abbrechen')
@@ -339,7 +341,9 @@ def glaze_not_preselected(b, url):
     assert sel() == 0, 'glaze preselected after Ton auflegen'
     click(page, '← Zurück zur Scheibe')
     click(page, '↶ Rückgängig')
+    at_hollow(page)
     click(page, '↶ Rückgängig')
+    click(page, 'Weiter zum Formen →')
     click(page, 'Fertig – Glasieren →')
     assert sel() == 1, 'undo did not restore preferred glaze'
 
@@ -641,7 +645,19 @@ def hollow_old_entry(b, url):
     assert not errs, errs[:2]
 
 
-FLOWS = [hollow_steps, hollow_old_entry, wet_shine, analytics, portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save, gallery_view, home_hint]
+def undo_to_solid(b, url):
+    page = new_page(b, url)
+    errs = []; page.on('pageerror', lambda e: errs.append(str(e)))
+    start_clay(page)
+    click(page, '↶ Rückgängig')
+    at_hollow(page)
+    hollow_attrs(page, 'solid', '0.130')
+    assert page.get_by_role('button', name='Weiter zum Formen →').is_disabled(), 'Weiter must be disabled when solid again'
+    assert page.get_by_role('button', name='Fertig – Glasieren →').count() == 0, 'glazing reachable while solid'
+    assert not errs, errs[:2]
+
+
+FLOWS = [undo_to_solid, hollow_steps, hollow_old_entry, wet_shine, analytics, portrait_takeout_visible, gallery_no_wheel, sluggish, done_then_start, glaze_not_preselected, spin_and_padding, tools, notch_hint, lump_choice, sound_drag, edit_replaces, old_entry, undo_keeps_link, back_from_wheel, back_during_firing, no_back_after_save, gallery_view, home_hint]
 
 
 def main():
