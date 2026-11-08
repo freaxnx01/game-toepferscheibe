@@ -13,6 +13,10 @@ All notable changes to this project are documented here, following
 - Galerie: Werke lassen sich in 3D anschauen und drehen (#13).
 - Speicherschutz: Der Browser wird um dauerhaften Speicher gebeten, und auf iPad/iPhone erscheint einmalig ein Tipp zum Home-Bildschirm (#5).
 
+### Changed
+
+- Besuche über die künftige Kurzadresse **freax.games** werden ebenfalls gezählt, damit beim Umzug des GamesHub nichts verloren geht.
+
 ## [0.2.0] - 2026-10-23
 
 ### Added
