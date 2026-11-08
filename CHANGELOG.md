@@ -15,6 +15,7 @@ All notable changes to this project are documented here, following
 
 ### Changed
 
+- Besuche über die eigene Adresse **toepferscheibe.freax.games** werden ebenfalls gezählt, schon vor dem Umzug dorthin.
 - Besuche über die künftige Kurzadresse **freax.games** werden ebenfalls gezählt, damit beim Umzug des GamesHub nichts verloren geht.
 
 ## [0.2.0] - 2026-10-23
